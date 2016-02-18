@@ -5,67 +5,15 @@ from keras.optimizers import SGD
 import cv2, numpy as np
 
 
-def VGG_16(weights_path=None):
-    model = Sequential()
-    model.add(ZeroPadding2D((1,1),input_shape=(3,224,224)))
-    model.add(Convolution2D(64, 3, 3, activation='relu'))
-    model.add(ZeroPadding2D((1,1)))
-    model.add(Convolution2D(64, 3, 3, activation='relu'))
-    model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-    model.add(ZeroPadding2D((1,1)))
-    model.add(Convolution2D(128, 3, 3, activation='relu'))
-    model.add(ZeroPadding2D((1,1)))
-    model.add(Convolution2D(128, 3, 3, activation='relu'))
-    model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-    model.add(ZeroPadding2D((1,1)))
-    model.add(Convolution2D(256, 3, 3, activation='relu'))
-    model.add(ZeroPadding2D((1,1)))
-    model.add(Convolution2D(256, 3, 3, activation='relu'))
-    model.add(ZeroPadding2D((1,1)))
-    model.add(Convolution2D(256, 3, 3, activation='relu'))
-    model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-    model.add(ZeroPadding2D((1,1)))
-    model.add(Convolution2D(512, 3, 3, activation='relu'))
-    model.add(ZeroPadding2D((1,1)))
-    model.add(Convolution2D(512, 3, 3, activation='relu'))
-    model.add(ZeroPadding2D((1,1)))
-    model.add(Convolution2D(512, 3, 3, activation='relu'))
-    model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-    model.add(ZeroPadding2D((1,1)))
-    model.add(Convolution2D(512, 3, 3, activation='relu'))
-    model.add(ZeroPadding2D((1,1)))
-    model.add(Convolution2D(512, 3, 3, activation='relu'))
-    model.add(ZeroPadding2D((1,1)))
-    model.add(Convolution2D(512, 3, 3, activation='relu'))
-    model.add(MaxPooling2D((2,2), strides=(2,2)))
-
-    model.add(Flatten())
-    model.add(Dense(4096, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(4096, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(1000, activation='softmax'))
-
-    if weights_path:
-        model.load_weights(weights_path)
-
-    return model
-
+# todo- alter layer names (also in script)
 def VGG_16_graph(weights_path=None):
-    #sequence_model = VGG_16('Resources\\vgg16_weights.h5')
-    #print sequence_model.weights
-
     model = Graph()
     model.add_input(name='input', input_shape=(3, 224, 224))
     model.add_node(ZeroPadding2D((1,1)), name='pad1', input='input')
-    model.add_node(Convolution2D(64, 3, 3, activation='relu'), name='relu1', input='pad1') # weights=sequence_model.layers[1].W.container
-    model.add_node(ZeroPadding2D((1,1)), name='pad2', input='relu1')
-    model.add_node(Convolution2D(64, 3, 3, activation='relu'), name='relu2', input='pad2')
-    model.add_node(MaxPooling2D((2,2), strides=(2,2)), name='pool1', input='relu2')
+    model.add_node(Convolution2D(64, 3, 3, activation='relu'), name='conv1', input='pad1')
+    model.add_node(ZeroPadding2D((1,1)), name='pad2', input='conv1')
+    model.add_node(Convolution2D(64, 3, 3, activation='relu'), name='conv2', input='pad2')
+    model.add_node(MaxPooling2D((2,2), strides=(2,2)), name='pool1', input='conv2')
 
     model.add_node(ZeroPadding2D((1,1)), name='1', input='pool1')
     model.add_node(Convolution2D(128, 3, 3, activation='relu'), name='2', input='1')
@@ -106,13 +54,15 @@ def VGG_16_graph(weights_path=None):
 
     model.add_output(input='32', name='output')
 
-    # if weights_path:
-    #     model.load_weights(weights_path)
+    if weights_path:
+        model.load_weights(weights_path)
 
     return model
 
+
+# todo- fix this to work on a graph
 def load_and_alter_net():
-    model = VGG_16('Resources\\vgg16_weights.h5')
+    model = VGG_16_graph('Resources\\vgg16_graph_weights.h5')
     # remove redundant layers (from the end)
     for i in range(3):
         # dense layer
@@ -126,13 +76,6 @@ def load_and_alter_net():
     return model
 
 
-def load_net_for_testing():
-    model = VGG_16('Resources\\vgg16_weights.h5')
-    sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
-    model.compile(optimizer=sgd, loss='categorical_crossentropy')
-    return model
-
-
 def prepare_img(img_path):
     im = cv2.resize(cv2.imread(img_path), (224, 224)).astype(np.float32)
     im[:,:,0] -= 103.939
@@ -143,29 +86,10 @@ def prepare_img(img_path):
     return im
 
 
-def test_img(model, img_path):
-    im = prepare_img(img_path)
-    out = model.predict(im)
-    return np.argmax(out)
-
-
 def test_img_graph(graph, img_path):
     im = prepare_img(img_path)
     out = graph.predict({'input': im})
     return np.argmax(out['output'])
-
-
-# Test pretrained model
-def test_full_net():
-    print "loading net..."
-    model = load_net_for_testing()
-    print "testing..."
-    print test_img(model, 'Resources\\cat2.jpg')
-    print test_img(model, 'Resources\\cat.jpg')
-    print test_img(model, 'Resources\\img-cat2.jpg')
-    print test_img(model, 'Resources\\img-cat.jpg')
-    print test_img(model, 'Resources\\img-zebra.jpg')
-    print test_img(model, 'Resources\\img-zebra2.jpg')
 
 
 def test_partial_net():
@@ -177,29 +101,12 @@ def test_partial_net():
     print out
 
 if __name__ == "__main__":
-    # test_partial_net()
-    # test_full_net()
-    print 'creating sequential model...'
-    graph = VGG_16_graph('Resources\\vgg16_weights.h5')
-    # print 'graph get weights'
-    # print graph.get_weights()
-    print 'creating grapth model...'
-    model = VGG_16('Resources\\vgg16_weights.h5')
-    # print 'model get weights'
-    # print model.get_weights()
-    print 'setting graph weights...'
-    graph.set_weights(model.get_weights())
-    # print 'graph new weights'
-    # print graph.get_weights()
+    print 'creating graph model...'
+    graph = VGG_16_graph('Resources\\vgg16_graph_weights.h5')
 
     print 'compiling graph...'
     sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
-    # graph.compile(optimizer=sgd, loss={'output': 'mse'})
     graph.compile(optimizer=sgd, loss={'output': 'categorical_crossentropy'})
-
-    print 'compiling sequential model...'
-    sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
-    model.compile(optimizer=sgd, loss='categorical_crossentropy')
 
     print test_img_graph(graph, 'Resources\\cat2.jpg')
     print test_img_graph(graph, 'Resources\\cat.jpg')
@@ -207,9 +114,7 @@ if __name__ == "__main__":
     print test_img_graph(graph, 'Resources\\img-cat.jpg')
     print test_img_graph(graph, 'Resources\\img-zebra.jpg')
     print test_img_graph(graph, 'Resources\\img-zebra2.jpg')
-    print test_img(model, 'Resources\\cat2.jpg')
-    print test_img(model, 'Resources\\cat.jpg')
-    print test_img(model, 'Resources\\img-cat2.jpg')
-    print test_img(model, 'Resources\\img-cat.jpg')
-    print test_img(model, 'Resources\\img-zebra.jpg')
-    print test_img(model, 'Resources\\img-zebra2.jpg')
+
+    print graph.summary()
+
+    # todo- delete testing related functions and/or move to a separate file
