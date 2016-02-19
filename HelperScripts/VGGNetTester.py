@@ -1,4 +1,4 @@
-from ReadyVggDNetProvider import *
+from VggDNetGraphProvider import *
 from ImageUtils import *
 from keras.optimizers import SGD
 
@@ -10,7 +10,7 @@ def test_img_graph(graph, img_path):
 
 
 def test_partial_net():
-    graph = load_and_alter_net('..\Resources\\vgg16_graph_weights.h5')
+    graph = netProvider.get_vgg_partial_graph('..\Resources\\vgg16_graph_weights.h5')
     print graph.summary()
     sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
     graph.compile(optimizer=sgd, loss={'newoutput': 'categorical_crossentropy'})
@@ -20,8 +20,10 @@ def test_partial_net():
     print out
 
 if __name__ == "__main__":
+    netProvider = VggDNetGraphProvider()
+
     print 'creating graph model...'
-    graph = VGG_16_graph('..\Resources\\vgg16_graph_weights.h5')
+    graph = netProvider.get_vgg_full_graph('..\Resources\\vgg16_graph_weights.h5')
     print graph.summary()
 
     print 'compiling graph...'
