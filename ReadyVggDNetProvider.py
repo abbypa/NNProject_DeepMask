@@ -1,8 +1,6 @@
 from keras.models import *
 from keras.layers.core import Flatten, Dense, Dropout
 from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D
-from keras.optimizers import SGD
-import cv2, numpy as np
 
 
 def VGG_16_graph(weights_path=None, with_output=True):
@@ -60,8 +58,8 @@ def VGG_16_graph(weights_path=None, with_output=True):
     return model
 
 
-def load_and_alter_net(with_output=True):
-    model = VGG_16_graph('Resources\\vgg16_graph_weights.h5', False)
+def load_and_alter_net(weights_path, with_output=True):
+    model = VGG_16_graph(weights_path, False)
     nodes_to_pop = ['dense3', 'drop2', 'dense2', 'drop1', 'dense1', 'flat', 'pool5']
     params_to_pop = 2 * 3  # 2 params for each dense layer
 
@@ -82,50 +80,5 @@ def load_and_alter_net(with_output=True):
     return model
 
 
-def prepare_img(img_path):
-    im = cv2.resize(cv2.imread(img_path), (224, 224)).astype(np.float32)
-    im[:,:,0] -= 103.939
-    im[:,:,1] -= 116.779
-    im[:,:,2] -= 123.68
-    im = im.transpose((2,0,1))
-    im = np.expand_dims(im, axis=0)
-    return im
 
-
-def test_img_graph(graph, img_path):
-    im = prepare_img(img_path)
-    out = graph.predict({'input': im})
-    return np.argmax(out['output'])
-
-
-def test_partial_net():
-    graph = load_and_alter_net()
-    print graph.summary()
-    sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
-    graph.compile(optimizer=sgd, loss={'newoutput': 'categorical_crossentropy'})
-    im = prepare_img('Resources\\img-cat2.jpg')
-    out = graph.predict({'input': im})
-    print out
-
-if __name__ == "__main__":
-    test_partial_net()
-
-    print 'creating graph model...'
-    graph = VGG_16_graph('Resources\\vgg16_graph_weights.h5')
-
-    print 'compiling graph...'
-    sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
-    graph.compile(optimizer=sgd, loss={'output': 'categorical_crossentropy'})
-
-    print test_img_graph(graph, 'Resources\\cat2.jpg')
-    print test_img_graph(graph, 'Resources\\cat.jpg')
-    print test_img_graph(graph, 'Resources\\img-cat2.jpg')
-    print test_img_graph(graph, 'Resources\\img-cat.jpg')
-    print test_img_graph(graph, 'Resources\\img-zebra.jpg')
-    print test_img_graph(graph, 'Resources\\img-zebra2.jpg')
-
-    print graph.summary()
-
-
-    # todo- delete testing related functions and/or move to a separate file
-    # todo- delete all prints
+# todo- rename class
