@@ -27,19 +27,25 @@ class CocoUtils(object):
         seg_mask, seg_img = self.get_mask_array_and_image(annotation, img_width, img_height, 1)
         return seg_mask
 
+    # mask true's are 1 but image true's are 128- otherwise it's pretty much invisible
     def get_annotation_image(self, annotation, img_width, img_height):
         seg_mask, seg_img = self.get_mask_array_and_image(annotation, img_width, img_height, 128)
         return seg_img
 
-    def show_annotations(self, pic_path, annotations):
-        pylab.rcParams['figure.figsize'] = (10.0, 8.0)
-        read_img = io.imread(pic_path)
-        plt.figure()
-        plt.imshow(read_img)
-        self.coco.showAnns(annotations)
+    def are_legal_anotations(self, annotations):
+        # unfortunately, only polygon segmentations work for now (RLE mask type decoding causes a python crash)
+        polygon_segmentations = ['segmentation' in ann and type(ann['segmentation']) == list for ann in annotations]
+        return all(polygon_segmentations)
 
-    def get_and_show_annotations(self, pic_path, pic_id):
-        self.show_annotations(pic_path, self.get_img_annotations(pic_id))
+    def show_annotations(self, pic_path, annotations):
+        if self.are_legal_anotations(annotations):
+            pylab.rcParams['figure.figsize'] = (10.0, 8.0)
+            read_img = io.imread(pic_path)
+            plt.figure()
+            plt.imshow(read_img)
+            self.coco.showAnns(annotations)
+        else:
+            print 'cannot show invalid annotation'
 
     def is_segmentation_centered(self, segmentation, img_width, img_height):
         bbox = segmentation['bbox']
@@ -49,33 +55,3 @@ class CocoUtils(object):
         pic_center_x = img_width/2
         pic_center_y = img_height/2
         return abs(pic_center_x-bbox_center_x) <= 65 and abs(pic_center_y-bbox_center_y) <= 65
-
-
-coco_utils = CocoUtils('..', 'val2014')
-picId = 438915
-img_path = '../images/%s.jpg' % picId
-img = coco_utils.coco.loadImgs(picId)[0]
-coco_utils.get_and_show_annotations(img_path, picId)
-anns = coco_utils.get_img_annotations(picId)
-
-# for image showing, should replace 1's with 128, otherwise it's pretty much invisible
-centered_anns = []
-for ann_num in range(len(anns)):
-    im = coco_utils.get_annotation_image(anns[ann_num], img['width'], img['height'])
-    im.save('Results/' + str(ann_num) + '.jpg', 'JPEG')
-    if coco_utils.is_segmentation_centered(anns[ann_num], img['width'], img['height']):
-        print '%s is centered' % ann_num
-        centered_anns.append(anns[ann_num])
-coco_utils.show_annotations(img_path, centered_anns)
-print 'done'
-
-# these lines causes errors with ntdll. might also happen in showAnns, like in image 262148
-# as an alternative, I use ImageDraw to manually calculate the mask
-
-# Rs = frPyObjects(ann['segmentation'], img['height'], img['width'])
-# masks = decode(Rs)
-
-# todo- from web
-# resp = urllib.urlopen(img_url)
-#    image = np.asarray(bytearray(resp.read()), dtype="uint8")
-#    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
