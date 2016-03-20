@@ -1,8 +1,10 @@
 from pycocotools.coco import COCO
+from pycocotools.mask import *
 import numpy as np
 import skimage.io as io
 import matplotlib.pyplot as plt
 import pylab
+from PIL import Image, ImageDraw
 
 
 class CocoUtils(object):
@@ -36,11 +38,29 @@ class CocoUtils(object):
 
 
 coco_utils = CocoUtils('..', 'val2014')
+# picId = 262148
+# img_path = '../images/COCO_train2014_000000262180.jpg'
 picId = 438915
-img_path = '../images/%s.jpg' % picId
+img_path = '../images/%s.jpg' %(picId)
 img = coco_utils.coco.loadImgs(picId)[0]
 coco_utils.get_and_show_annotations(img_path, picId)
 anns = coco_utils.get_img_annotations(picId)
+
+ann = anns[1]
+# these lines causes errors with ntdll. might also happen in showAnns.
+# Rs = frPyObjects(ann['segmentation'], img['height'], img['width'])
+# masks = decode(Rs)
+
+# as an alternative, I use ImageDraw to manually calculate the mask
+seg = ann['segmentation']
+raster_img = Image.new('L', (img['width'], img['height']), 0)
+ImageDraw.Draw(raster_img).polygon(seg[0], outline=1, fill=1)
+mask = np.array(raster_img)
+np.savetxt('mask.txt', mask)
+# for image showing, should replace 1's with 128, otherwise it's pretty much invisible
+# raster_img.save('polygon.jpg', 'JPEG')
+# raster_img.show()
+
 centered_anns = []
 for seg in anns:
     if coco_utils.is_segmentation_centered(seg, img):
