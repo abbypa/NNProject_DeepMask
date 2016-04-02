@@ -13,8 +13,8 @@ def test_img(img_id, img_path):
 
     for ann_num in range(len(anns)):
         centered_text = ''
-        if coco_utils.is_segmentation_centered(anns[ann_num], img['width'], img['height']):
-            centered_text = 'center'
+        # if coco_utils.is_segmentation_centered(anns[ann_num], img['width'], img['height']):
+        #     centered_text = 'center'
         im = coco_utils.get_annotation_image(anns[ann_num], img['width'], img['height'])
         im_path = str.format('../Results/%s_%s_%s.jpg' % (img_id, ann_num, centered_text))
         im.save(im_path, 'JPEG')

@@ -47,11 +47,6 @@ class CocoUtils(object):
         else:
             print 'cannot show invalid annotation'
 
-    def is_segmentation_centered(self, segmentation, img_width, img_height):
-        bbox = segmentation['bbox']
-        bbox_center_x = (bbox[2] + bbox[0]) / 2
-        bbox_center_y = (bbox[3] + bbox[1]) / 2
-        # todo- what is 'centered'? what size?
-        pic_center_x = img_width/2
-        pic_center_y = img_height/2
-        return abs(pic_center_x-bbox_center_x) <= 65 and abs(pic_center_y-bbox_center_y) <= 65
+    def get_images_data(self):
+        # each item is image_id, image_file_name
+        return [pic_data[1] for pic_data in self.coco.imgs.items()]
