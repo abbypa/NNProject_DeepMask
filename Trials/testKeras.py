@@ -9,7 +9,7 @@ import numpy as np
 np.random.seed(1337)  # for reproducibility
 
 from keras.datasets import mnist
-from keras.models import Sequential
+from keras.models import Sequential, model_from_json
 from keras.layers.core import Dense, Dropout, Activation
 from keras.optimizers import SGD, Adam, RMSprop
 from keras.utils import np_utils
@@ -17,7 +17,7 @@ from keras.utils import np_utils
 
 batch_size = 128
 nb_classes = 10
-nb_epoch = 20
+nb_epoch = 1
 
 # the data, shuffled and split between tran and test sets
 (X_train, y_train), (X_test, y_test) = mnist.load_data()
@@ -46,13 +46,22 @@ model.add(Dense(10))
 model.add(Activation('softmax'))
 
 rms = RMSprop()
-model.compile(loss='categorical_crossentropy', optimizer=rms)
+"""model.compile(loss='categorical_crossentropy', optimizer=rms)
 
-model.fit(X_train, Y_train,
+json_string = model.to_json()
+open('my_model_architecture.json', 'w').write(json_string)
+model.save_weights('my_model_weights.h5')
+model = 0
+"""
+# check compilation after save
+model_from_file = model_from_json(open('my_model_architecture.json').read())
+model_from_file.load_weights('my_model_weights.h5')
+
+model_from_file.fit(X_train, Y_train,
           batch_size=batch_size, nb_epoch=nb_epoch,
           show_accuracy=True, verbose=2,
           validation_data=(X_test, Y_test))
-score = model.evaluate(X_test, Y_test,
+score = model_from_file.evaluate(X_test, Y_test,
                        show_accuracy=True, verbose=0)
 print('Test score:', score[0])
 print('Test accuracy:', score[1])

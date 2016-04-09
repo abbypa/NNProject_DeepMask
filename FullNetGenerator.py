@@ -39,6 +39,6 @@ class FullNetGenerator(object):
         graph.add_output(input='seg_reshape', name='seg_output')
 
 
-fng = FullNetGenerator('Resources/vgg16_graph_weights.h5')
-fn = fng.create_full_net()
-print 'done'
+# usage-
+# fng = FullNetGenerator('Resources/vgg16_graph_weights.h5')
+# fn = fng.create_full_net()

@@ -69,6 +69,8 @@ class VggDNetGraphProvider(object):
         # remove redundant layers (from the end)
         for node in nodes_to_pop:
             model.nodes.pop(node)
+            model.namespace.remove(node)
+            model.node_config.pop()
         # remove relevant params
         for _ in range(params_to_pop):
             model.params.pop()
