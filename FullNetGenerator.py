@@ -8,14 +8,13 @@ class FullNetGenerator(object):
         self.final_common_layer = 'conv13'
         self.weights_path = weights_path
 
-    def create_full_net(self):
+    def create_full_net(self, score_branch=True, seg_branch=True):
         vgg_provider = VggDNetGraphProvider()
         net = vgg_provider.get_vgg_partial_graph(weights_path=self.weights_path, with_output=False)
-        # print net.summary()
-        self.append_score_branch(net)
-        # print net.summary()
-        self.append_segmentation_branch(net)
-        # print net.summary()
+        if score_branch:
+            self.append_score_branch(net)
+        if seg_branch:
+            self.append_segmentation_branch(net)
         return net
 
     def append_score_branch(self, graph):
