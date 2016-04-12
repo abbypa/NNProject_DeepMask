@@ -4,9 +4,9 @@ import numpy as np
 from PIL import Image
 
 
-def prepare_local_image(img_path):
-    image = cv2.imread(img_path)
-    return prepare_image(image)
+def prepare_local_image(img_paths):
+    prepared_imgs = [prepare_image(cv2.imread(img_path)) for img_path in img_paths]
+    return np.stack(prepared_imgs)
 
 
 def prepare_url_image(img_url):
@@ -25,8 +25,6 @@ def prepare_image(img, normalize=True):
         im[:, :, 2] -= 123.68
     # change dimension order - 224x224x3 -> 3x224x224
     im = im.transpose((2, 0, 1))
-    # add another dimension for bulk processing
-    im = np.expand_dims(im, axis=0)
     return im
 
 
