@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image
 
 
-def prepare_local_image(img_paths):
+def prepare_local_images(img_paths):
     prepared_imgs = [prepare_image(cv2.imread(img_path)) for img_path in img_paths]
     return np.stack(prepared_imgs)
 
@@ -28,12 +28,15 @@ def prepare_image(img, normalize=True):
     return im
 
 
+def prepare_expected_masks(mask_paths):
+    prepared_masks = [prepare_expected_mask(mask_path) for mask_path in mask_paths]
+    return np.stack(prepared_masks)
+
+
 def prepare_expected_mask(mask_path):
     im = cv2.resize(cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE), (56, 56)).astype(np.float32)
     # replace 128 with 1 (visible to actual mask)
     im[:, :] /= 128
-    # add another dimension to suit expected format- 56x56 -> 1x56x56
-    im = np.expand_dims(im, axis=0)
     return im
 
 
