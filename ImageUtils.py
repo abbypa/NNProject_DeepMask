@@ -46,3 +46,16 @@ def save_array_as_img(data_array, output_path):
     im = Image.fromarray(data_array)
     im = im.convert("L")
     im.save(output_path)
+
+
+def binarize_img(data_array, threshold):
+    binary_img = np.copy(data_array)
+    # all below threshold -> 0, all above -> 1
+    binary_img[data_array >= threshold] = 255  # todo
+    binary_img[data_array < threshold] = 0
+    return binary_img
+
+
+def binarize_and_save_mask(data_array, threshold, output_path):
+    binary_mask = binarize_img(data_array, threshold)
+    save_array_as_img(binary_mask, output_path)

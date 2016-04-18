@@ -10,23 +10,14 @@ graph_weights_path = 'Resources/graph_weights.h5'
 original_net_weights_path = None  # TODO- 'Resources/vgg16_graph_weights.h5'
 
 
-def print_debug(str):
-    print '%s: %s' % (datetime.datetime.now(), str)
-
-
-def binarize_img(data_array, threshold):
-    binary_img = np.copy(data_array)
-    # all below threshold -> 0, all above -> 1
-    binary_img[data_array >= threshold] = 255  # todo
-    binary_img[data_array < threshold] = 0
-    return binary_img
+def print_debug(str_to_print):
+    print '%s: %s' % (datetime.datetime.now(), str_to_print)
 
 
 def test_prediction(imgs, round_num, net, expected_result_arr, expected_masks):
     predictions = net.predict({'input': imgs})
-    binary_mask = binarize_img(predictions['seg_output'][0], 0.1)
-    prediction_path = 'Predictions/%d.png' % (round_num)
-    save_array_as_img(binary_mask, prediction_path)
+    prediction_path = 'Predictions/%d.png' % round_num
+    binarize_and_save_mask(predictions['seg_output'][0], 0.1, prediction_path)
 
     print_debug('prediction %s' % predictions['score_output'])
     evaluation = net.evaluate({'input': imgs, 'score_output': expected_result_arr, 'seg_output': expected_masks},
@@ -113,9 +104,8 @@ def main():
     epochs = 10
     for i in range(epochs):
         print_debug('starting round %d:' % (i+1))
-        history = graph.fit({'input': images, 'seg_output': expected_masks, 'score_output': expected_result_arr},
+        graph.fit({'input': images, 'seg_output': expected_masks, 'score_output': expected_result_arr},
                             nb_epoch=1, verbose=0)
-        print_debug('fit loss: %s' % history.history['loss'])
         test_prediction(images, i+1, graph, expected_result_arr, expected_masks)
 
 
