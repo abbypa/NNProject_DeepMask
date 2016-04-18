@@ -27,10 +27,11 @@ def test_prediction(imgs, round_num, net, expected_result_arr, expected_masks):
     binary_mask = binarize_img(predictions['seg_output'][0], 0.1)
     prediction_path = 'Predictions/%d.png' % (round_num)
     save_array_as_img(binary_mask, prediction_path)
+
     print_debug('prediction %s' % predictions['score_output'])
-    # evaluation = net.evaluate({'input': imgs, 'score_output': expected_result_arr, 'seg_output': expected_masks},
-                              # batch_size=1)
-    # print_debug('evaluation %s' % evaluation)
+    evaluation = net.evaluate({'input': imgs, 'score_output': expected_result_arr, 'seg_output': expected_masks},
+                              batch_size=1)
+    print_debug('evaluation loss %s' % evaluation)
 
 
 def saved_net_exists():
@@ -56,9 +57,10 @@ def create_net():
 def compile_net(net):
     print_debug('compiling net...')
     # sgd = SGD(lr=0.001, decay=0.00005, momentum=0.9, nesterov=True)
-    sgd = SGD(lr=0.0001)
-    # TODO- loss_weights
-    net.compile(optimizer=sgd, loss={'score_output': binary_regression_error, 'seg_output': mask_binary_regression_error})  # TODO
+    # sgd = SGD(lr=0.0001)
+    sgd = SGD(lr=0.01)
+    net.compile(optimizer=sgd, loss={'score_output': binary_regression_error,
+                                     'seg_output': mask_binary_regression_error})
     return net
 
 
@@ -96,13 +98,13 @@ def prepare_data():
 
 
 def main():
-    if False and saved_net_exists():  # TODO
+    if saved_net_exists():
         graph = load_saved_net()
     else:
         graph = create_net()
-        compile_net(graph)
-        # save_net(graph) TODO
+        save_net(graph)
 
+    compile_net(graph)  # current keras version cannot load compiled net with custom loss function
     [images, expected_result_arr, expected_masks] = prepare_data()
 
     print_debug('running net...')

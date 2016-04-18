@@ -37,6 +37,8 @@ def prepare_expected_mask(mask_path):
     im = cv2.resize(cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE), (56, 56)).astype(np.float32)
     # replace 128 with 1 (visible to actual mask)
     im[:, :] /= 128
+    # 0 -> -1
+    im[im == 0] = -1
     return im
 
 
