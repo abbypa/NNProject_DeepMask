@@ -13,7 +13,7 @@ class ExamplesGenerator(object):
         self.debug = debug
         self.output_dir = output_dir
 
-    def generate_positive_examples(self):
+    def generate_positive_examples(self, examples_to_generate=None):
         stats = ExampleGeneratorStats()
 
         image_ids_and_names = self.coco_utils.get_images_data()
@@ -42,6 +42,10 @@ class ExamplesGenerator(object):
             for segmentation in annotations:
                 self.create_positive_example(pic_data, segmentation, pic_path, pic_id, stats)
 
+            if examples_to_generate == stats.seg_success:
+                # generated enough
+                break
+
         return stats
 
     def create_positive_example(self, pic_data, segmentation, pic_path, pic_id, stats):
@@ -53,10 +57,17 @@ class ExamplesGenerator(object):
         seg_height = bbox[3]
         seg_width = bbox[2]
 
-        if max(seg_height, seg_width) > self.max_object_size:
+        max_dim = round(max(seg_height, seg_width))
+        if max_dim > self.max_object_size:
             if self.debug:
                 print 'segment %d in picture %d is too big' % (seg_id, pic_id)
             stats.seg_too_big += 1
+            return
+
+        if max_dim < self.max_object_size:
+            if self.debug:
+                print 'segment %d in picture %d is too small' % (seg_id, pic_id)
+            stats.seg_too_small += 1
             return
 
         pic_height = pic_data['height']
@@ -103,6 +114,7 @@ class ExampleGeneratorStats(object):
         self.img_with_legal_annotations = 0
 
         self.seg_too_big = 0
+        self.seg_too_small = 0
         self.seg_too_close_to_edges = 0
         self.seg_success = 0
 
@@ -112,10 +124,12 @@ class ExampleGeneratorStats(object):
                    '\timgs with illegal annotations: %d\n'
                    '\timgs with legal annotations: %d\n'
                    '\t\tseg too big: %d\n'
+                   '\t\tseg too small: %d\n'
                    '\t\tseg too close to edges: %d\n'
                    '\t\tseg success: %d\n'
                    % (self.img_not_found, self.img_exists, self.img_with_illegal_annotations,
-                      self.img_with_legal_annotations, self.seg_too_big, self.seg_too_close_to_edges, self.seg_success))
+                      self.img_with_legal_annotations, self.seg_too_big, self.seg_too_small,
+                      self.seg_too_close_to_edges, self.seg_success))
 
 
 eg = ExamplesGenerator('..', 'train2014', 'Results')

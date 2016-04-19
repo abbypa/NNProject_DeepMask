@@ -1,3 +1,5 @@
+from math import pow
+
 # loss
 score_output_lambda = 1./32
 seg_output_lambda = 1
@@ -14,4 +16,4 @@ output_mask_size = 56
 # examples generation
 max_centered_object_dimension = 128
 translation_shift = 16
-scale_deformation = 2 ^ 0.25
+scale_deformation = pow(2.0, 0.25)

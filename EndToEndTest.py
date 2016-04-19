@@ -67,16 +67,9 @@ def save_net(net):
 def prepare_data():
     print_debug('preparing data...')
     img_paths = [
-        'Results/423362-1918790-im.png',
-        'Results/49-254537-im.png',
-        #'Results/49-1211660-im.png',
-        #'Results/49-2010752-im.png',
-        'Results/61-434050-im.png',
-        #'Results/61-555226-im.png',
-        #'Results/61-580815-im.png',
-        #'Results/61-2012396-im.png',
-        #'Results/71-141916-im.png',
-        #'Results/71-147406-im.png',
+        'Results/7504-334244-im.png',
+        'Results/17967-564620-im.png',
+        'Results/65582-586231-im.png',
         ]
     images = prepare_local_images(img_paths)
 
