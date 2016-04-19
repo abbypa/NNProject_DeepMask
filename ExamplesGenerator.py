@@ -1,7 +1,8 @@
 from CocoUtils import *
-from PIL import Image
+from PIL import Image, ImageOps
 import os
-from Constants import input_pic_size, max_centered_object_dimension
+from math import pow
+from Constants import input_pic_size, max_centered_object_dimension, translation_shift, scale_deformation
 
 
 class ExamplesGenerator(object):
@@ -81,29 +82,69 @@ class ExamplesGenerator(object):
         patch_min_y = seg_center_y - self.window_size/2
         patch_max_y = seg_center_y + self.window_size/2
 
-        if patch_min_x < 0 or patch_min_y < 0 or patch_max_x > pic_width or patch_max_y > pic_height:
+        if self.patch_exceeds_pic(patch_min_x, patch_min_y, patch_max_x, patch_max_y, pic_width, pic_height):
             if self.debug:
                 print 'segment %d in picture %d cannot be centered (too close to the edges)' % (seg_id, pic_id)
             stats.seg_too_close_to_edges += 1
             return
 
         im_arr = io.imread(pic_path)
-        patch_im_arr = im_arr[patch_min_y:patch_max_y, patch_min_x:patch_max_x]
-        patch_im = Image.fromarray(patch_im_arr)
-        output_path = str('%s/%d-%d-im.png' % (self.output_dir, pic_id, seg_id))
-        patch_im.save(output_path)
-        if self.debug:
-            patch_im.show()
-
-        # get_annotation_mask
+         # get_annotation_mask
         seg_im = self.coco_utils.get_annotation_image(segmentation, pic_width, pic_height)
-        patch_seg_im = seg_im.crop((int(patch_min_x), int(patch_min_y), int(patch_max_x), int(patch_max_y)))
-        output_path = str('%s/%d-%d-mask.png' % (self.output_dir, pic_id, seg_id))
-        patch_seg_im.save(output_path)
-        if self.debug:
-            patch_seg_im.show()
 
+        self.create_noisy_and_regular_pictures(im_arr, seg_im, patch_min_x, patch_max_x, patch_min_y, patch_max_y,
+                                               pic_width, pic_height, pic_id, seg_id)
         stats.seg_success += 1
+
+    def create_noisy_and_regular_pictures(self, im_arr, seg_im, patch_min_x, patch_max_x, patch_min_y, patch_max_y,
+                                          pic_width, pic_height, pic_id, seg_id):
+        x_offsets = [-translation_shift, 0, translation_shift]
+        y_offsets = [-translation_shift, 0, translation_shift]
+        x_scales = {pow(2.0, scale_deformation), 1, pow(2.0, -scale_deformation)}
+        y_scales = {pow(2.0, scale_deformation), 1, pow(2.0, -scale_deformation)}
+
+        for x_scale in x_scales:
+            for y_scale in y_scales:
+                for x_offset in x_offsets:
+                    for y_offset in y_offsets:
+                        cur_patch_min_x = (x_scale * patch_min_x) + x_offset
+                        cur_patch_max_x = (x_scale * patch_max_x) + x_offset
+                        cur_patch_min_y = (y_scale * patch_min_y) + y_offset
+                        cur_patch_max_y = (y_scale * patch_max_y) + y_offset
+
+                        if not self.patch_exceeds_pic(cur_patch_min_x, cur_patch_min_y, cur_patch_max_x, cur_patch_max_y,
+                                                      pic_width, pic_height):
+                            # TODO- if the mask also does not cut
+
+                            patch_im_arr = im_arr[cur_patch_min_y:cur_patch_max_y, cur_patch_min_x:cur_patch_max_x]
+                            patch_im = Image.fromarray(patch_im_arr)
+                            patch_im = patch_im.resize((self.window_size, self.window_size))
+                            patch_im.save(self.create_path('im', pic_id, seg_id, x_offset, y_offset, x_scale, y_scale))
+
+                            patch_seg_im = seg_im.crop((int(cur_patch_min_x), int(cur_patch_min_y),
+                                                        int(cur_patch_max_x), int(cur_patch_max_y)))
+                            patch_seg_im = patch_seg_im.resize((self.window_size, self.window_size))
+                            patch_seg_im.save(self.create_path('mask', pic_id, seg_id, x_offset, y_offset, x_scale, y_scale))
+
+                            if self.debug:
+                                patch_im.show()
+                                patch_seg_im.show()
+
+                            self.create_and_save_mirror(patch_seg_im, patch_im, pic_id, seg_id, x_offset, y_offset, x_scale, y_scale)
+
+    def create_and_save_mirror(self, mask, im_patch, pic_id, seg_id, x_offset, y_offset, x_scale, y_scale):
+        mir_im = ImageOps.mirror(im_patch)
+        mir_im.save(self.create_path('mir-im', pic_id, seg_id, x_offset, y_offset, x_scale, y_scale))
+        mir_mask = ImageOps.mirror(mask)
+        mir_mask.save(self.create_path('mir-mask', pic_id, seg_id, x_offset, y_offset, x_scale, y_scale))
+
+    def create_path(self, im_type, pic_id, seg_id, offset_x, offset_y, x_scale, y_scale):
+        return str('%s/%d-%d-%d-%d-%d-%d-%s.png' % (self.output_dir, pic_id, seg_id, offset_x, offset_y,
+                                                    x_scale, y_scale, im_type))
+    # TODO- fix scale file name
+
+    def patch_exceeds_pic(self, patch_min_x, patch_min_y, patch_max_x, patch_max_y, pic_width, pic_height):
+        return patch_min_x < 0 or patch_min_y < 0 or patch_max_x > pic_width or patch_max_y > pic_height
 
 
 class ExampleGeneratorStats(object):
