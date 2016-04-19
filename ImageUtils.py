@@ -2,6 +2,7 @@ import cv2
 import urllib
 import numpy as np
 from PIL import Image
+from Constants import mask_pic_true_color, mask_pic_false_color, input_pic_size, output_mask_size
 
 
 def prepare_local_images(img_paths):
@@ -17,7 +18,7 @@ def prepare_url_image(img_url):
 
 
 def prepare_image(img, normalize=True):
-    im = cv2.resize(img, (224, 224)).astype(np.float32)
+    im = cv2.resize(img, (input_pic_size, input_pic_size)).astype(np.float32)
     # normalization according to mean pixel value (provided by vgg training)
     if normalize:
         im[:, :, 0] -= 103.939
@@ -34,9 +35,9 @@ def prepare_expected_masks(mask_paths):
 
 
 def prepare_expected_mask(mask_path):
-    im = cv2.resize(cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE), (56, 56)).astype(np.float32)
-    # replace 128 with 1 (visible to actual mask)
-    im[:, :] /= 128
+    im = cv2.resize(cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE), (output_mask_size, output_mask_size)).astype(np.float32)
+    # replace visible color with 1 (actual mask)
+    im[im > 0] = 1
     # 0 -> -1
     im[im == 0] = -1
     return im
@@ -51,8 +52,8 @@ def save_array_as_img(data_array, output_path):
 def binarize_img(data_array, threshold):
     binary_img = np.copy(data_array)
     # all below threshold -> 0, all above -> 1
-    binary_img[data_array >= threshold] = 255  # todo
-    binary_img[data_array < threshold] = 0
+    binary_img[data_array >= threshold] = mask_pic_true_color
+    binary_img[data_array < threshold] = mask_pic_false_color
     return binary_img
 
 

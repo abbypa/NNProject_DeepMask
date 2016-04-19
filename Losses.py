@@ -1,7 +1,5 @@
 from keras import backend as K
-
-score_output_lambda = 1./32
-seg_output_lambda = 1
+from Constants import score_output_lambda, seg_output_lambda
 
 
 def binary_regression_error(y_true, y_pred):

@@ -1,13 +1,14 @@
 import datetime
 import os
+from Constants import mask_threshold
 from FullNetGenerator import *
 from ImageUtils import *
 from keras.optimizers import SGD
 from Losses import *
 
-graph_arch_path = 'Resources/graph_architecture.json'
-graph_weights_path = 'Resources/graph_weights.h5'
-original_net_weights_path = None  # TODO- 'Resources/vgg16_graph_weights.h5'
+graph_arch_path = 'Resources/graph_architecture_with_transfer.json'
+graph_weights_path = 'Resources/graph_weights_with_transfer.h5'
+original_net_weights_path = 'Resources/vgg16_graph_weights.h5'
 
 
 def print_debug(str_to_print):
@@ -16,13 +17,14 @@ def print_debug(str_to_print):
 
 def test_prediction(imgs, round_num, net, expected_result_arr, expected_masks):
     predictions = net.predict({'input': imgs})
-    prediction_path = 'Predictions/%d.png' % round_num
-    binarize_and_save_mask(predictions['seg_output'][0], 0.1, prediction_path)
-
     print_debug('prediction %s' % predictions['score_output'])
     evaluation = net.evaluate({'input': imgs, 'score_output': expected_result_arr, 'seg_output': expected_masks},
                               batch_size=1)
     print_debug('evaluation loss %s' % evaluation)
+    for i in range(len(predictions['seg_output'])):
+        mask = predictions['seg_output'][i]
+        prediction_path = 'Predictions/round%d-pic%d.png' % (round_num, i)
+        binarize_and_save_mask(mask, mask_threshold, prediction_path)
 
 
 def saved_net_exists():
@@ -66,10 +68,10 @@ def prepare_data():
     print_debug('preparing data...')
     img_paths = [
         'Results/423362-1918790-im.png',
-        #'Results/49-254537-im.png',
+        'Results/49-254537-im.png',
         #'Results/49-1211660-im.png',
         #'Results/49-2010752-im.png',
-        #'Results/61-434050-im.png',
+        'Results/61-434050-im.png',
         #'Results/61-555226-im.png',
         #'Results/61-580815-im.png',
         #'Results/61-2012396-im.png',
@@ -105,7 +107,7 @@ def main():
     for i in range(epochs):
         print_debug('starting round %d:' % (i+1))
         graph.fit({'input': images, 'seg_output': expected_masks, 'score_output': expected_result_arr},
-                            nb_epoch=1, verbose=0)
+                            nb_epoch=2, verbose=0)
         test_prediction(images, i+1, graph, expected_result_arr, expected_masks)
 
 

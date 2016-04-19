@@ -1,14 +1,15 @@
 from CocoUtils import *
 from PIL import Image
 import os
+from Constants import input_pic_size, max_centered_object_dimension
 
 
 class ExamplesGenerator(object):
     def __init__(self, data_dir, data_type, output_dir, debug=False):
         self.coco_utils = CocoUtils(data_dir, data_type)
         self.images_dir = '%s/annotations/images/' % data_dir
-        self.window_size = 224
-        self.max_object_size = 128
+        self.window_size = input_pic_size
+        self.max_object_size = max_centered_object_dimension
         self.debug = debug
         self.output_dir = output_dir
 

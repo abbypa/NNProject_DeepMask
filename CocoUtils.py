@@ -4,6 +4,7 @@ import skimage.io as io
 import matplotlib.pyplot as plt
 import pylab
 from PIL import Image, ImageDraw
+from Constants import mask_pic_true_color
 
 
 class CocoUtils(object):
@@ -29,7 +30,7 @@ class CocoUtils(object):
 
     # mask true's are 1 but image true's are 128- otherwise it's pretty much invisible
     def get_annotation_image(self, annotation, img_width, img_height):
-        seg_mask, seg_img = self.get_mask_array_and_image(annotation, img_width, img_height, 128) # todo- 128 -> 255
+        seg_mask, seg_img = self.get_mask_array_and_image(annotation, img_width, img_height, mask_pic_true_color)
         return seg_img
 
     def are_legal_anotations(self, annotations):
