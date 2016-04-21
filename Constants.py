@@ -15,3 +15,6 @@ output_mask_size = 56
 max_centered_object_dimension = 128
 translation_shift = 16
 scale_deformation = 0.25
+
+negative_ex_min_offset = 32
+negative_ex_min_scale = 1

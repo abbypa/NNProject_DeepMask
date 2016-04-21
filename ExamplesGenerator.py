@@ -1,19 +1,21 @@
 from CocoUtils import *
 from PIL import Image, ImageOps
 import os
-from Constants import input_pic_size, max_centered_object_dimension, translation_shift, scale_deformation
+from Constants import input_pic_size, max_centered_object_dimension, translation_shift, scale_deformation, \
+    negative_ex_min_offset, negative_ex_min_scale
 
 
 class ExamplesGenerator(object):
-    def __init__(self, data_dir, data_type, output_dir, debug=False):
+    def __init__(self, data_dir, data_type, positive_output_dir, negative_output_dir, debug=False):
         self.coco_utils = CocoUtils(data_dir, data_type)
         self.images_dir = '%s/annotations/images/' % data_dir
         self.window_size = input_pic_size
         self.max_object_size = max_centered_object_dimension
         self.debug = debug
-        self.output_dir = output_dir
+        self.positive_output_dir = positive_output_dir
+        self.negative_output_dir = negative_output_dir
 
-    def generate_positive_examples(self, examples_to_generate=None):
+    def generate_examples(self, examples_to_generate=None):
         stats = ExampleGeneratorStats()
 
         image_ids_and_names = self.coco_utils.get_images_data()
@@ -39,15 +41,23 @@ class ExamplesGenerator(object):
 
             stats.img_with_legal_annotations += 1
 
-            for segmentation in annotations:
-                self.create_positive_example(pic_data, segmentation, pic_path, pic_id, stats)
+            pic_patch = Patch(x_min=0, y_min=0, height=pic_data['height'], width=pic_data['width'])
+            im_arr = io.imread(pic_path)
 
-            if examples_to_generate == stats.seg_success:
+            canonical_seg_patches = []
+            for segmentation in annotations:
+                canonical_seg_patches.append(self.create_positive_examples_from_segmentation(segmentation, pic_id,
+                                                                                             pic_patch, im_arr, stats))
+
+            negatives = self.create_negative_examples_from_picture(canonical_seg_patches, pic_id, pic_patch, im_arr)
+            stats.negatives_generated += negatives
+
+            if examples_to_generate <= stats.positives_generated + stats.negatives_generated:
                 # generated enough
                 break
         return stats
 
-    def create_positive_example(self, pic_data, segmentation, pic_path, pic_id, stats):
+    def create_positive_examples_from_segmentation(self, segmentation, pic_id, pic_patch, im_arr, stats):
         seg_id = segmentation['id']
 
         # bbs - [x y w h]
@@ -58,7 +68,6 @@ class ExamplesGenerator(object):
         if self.segment_size_not_right(seg_width, seg_height, seg_id, pic_id, stats):
             return
 
-        pic_patch = Patch(x_min=0, y_min=0, height=pic_data['height'], width=pic_data['width'])
         [seg_center_x, seg_center_y] = bbox_patch.center()
 
         seg_patch = Patch(x_min=seg_center_x - self.window_size / 2, y_min=seg_center_y - self.window_size / 2,
@@ -70,14 +79,20 @@ class ExamplesGenerator(object):
             stats.seg_too_close_to_edges += 1
             return
 
-        im_arr = io.imread(pic_path)
         [pic_width, pic_height] = pic_patch.size()
         seg_im = self.coco_utils.get_annotation_image(segmentation, pic_width, pic_height)
 
-        self.create_noisy_and_regular_pictures(im_arr, seg_im, seg_patch, pic_patch, bbox_patch, pic_id, seg_id)
+        positives = self.create_positive_canonical_and_noisy_examples_from_mask(im_arr, seg_im, seg_patch, pic_patch, bbox_patch,
+                                                                    pic_id, seg_id)
         stats.seg_success += 1
+        stats.positives_generated += positives
 
-    def create_noisy_and_regular_pictures(self, im_arr, full_seg_im, orig_seg_patch, pic_patch, bbox_patch, pic_id, seg_id):
+        return seg_patch
+
+    def create_positive_canonical_and_noisy_examples_from_mask(self, im_arr, full_seg_im, orig_seg_patch, pic_patch,
+                                                               bbox_patch, pic_id, seg_id):
+        created_examples = 0
+
         offsets = [-translation_shift, 0, translation_shift]
         scales = [pow(2.0, scale_deformation), 1, pow(2.0, -scale_deformation)]
 
@@ -100,29 +115,21 @@ class ExamplesGenerator(object):
                             continue
 
                         if self.patch_exceeds_seg(new_patch, bbox_patch):
+                            # this will not happen with the default constants (input size, max object dimension)
                             print 'exceeding: xs %s ys %s xo %s yo %s' % (x_scale_i, y_scale_i, x_offset_i, y_offset_i)
                             continue
 
-                        new_patch_x_max = new_patch.x_min + new_patch.width  # not inclusive
-                        new_patch_y_max = new_patch.y_min + new_patch.height
+                        img_path = self.create_path('im', pic_id, seg_id,x_offset_i, y_offset_i, x_scale_i, y_scale_i)
+                        patch_im = self.create_and_save_image_patch(im_arr, new_patch, img_path)
 
-                        patch_im_arr = im_arr[new_patch.y_min:new_patch_y_max, new_patch.x_min:new_patch_x_max]
-                        patch_im = Image.fromarray(patch_im_arr)
-                        patch_im = patch_im.resize((self.window_size, self.window_size))
-                        patch_im.save(self.create_path('im', pic_id, seg_id,
-                                                       x_offset_i, y_offset_i, x_scale_i, y_scale_i))
+                        mask_path = self.create_path('mask', pic_id, seg_id, x_offset_i, y_offset_i, x_scale_i, y_scale_i)
+                        patch_seg_im = self.create_and_save_mask(full_seg_im, new_patch, mask_path)
 
-                        patch_seg_im = full_seg_im.crop((new_patch.x_min, new_patch.y_min, new_patch_x_max, new_patch_y_max))
-                        patch_seg_im = patch_seg_im.resize((self.window_size, self.window_size))
-                        patch_seg_im.save(self.create_path('mask', pic_id, seg_id,
-                                                           x_offset_i, y_offset_i, x_scale_i, y_scale_i))
+                        self.create_and_save_mirror(patch_seg_im, patch_im, pic_id, seg_id, x_offset_i, y_offset_i,
+                                                    x_scale_i, y_scale_i)
 
-                        if self.debug:
-                            patch_im.show()
-                            patch_seg_im.show()
-
-                        self.create_and_save_mirror(patch_seg_im, patch_im, pic_id, seg_id,
-                                                   x_offset_i, y_offset_i, x_scale_i, y_scale_i)
+                        created_examples += 2  # example and mirror
+        return created_examples
 
     def create_and_save_mirror(self, mask, im_patch, pic_id, seg_id, x_offset, y_offset, x_scale, y_scale):
         mir_im = ImageOps.mirror(im_patch)
@@ -131,7 +138,7 @@ class ExamplesGenerator(object):
         mir_mask.save(self.create_path('mir-mask', pic_id, seg_id, x_offset, y_offset, x_scale, y_scale))
 
     def create_path(self, im_type, pic_id, seg_id, offset_x, offset_y, x_scale, y_scale):
-        return str('%s/%d-%d-%d-%d-%d-%d-%s.png' % (self.output_dir, pic_id, seg_id, offset_x, offset_y,
+        return str('%s/%d-%d-%d-%d-%d-%d-%s.png' % (self.positive_output_dir, pic_id, seg_id, offset_x, offset_y,
                                                     x_scale, y_scale, im_type))
 
     def patch_exceeds_pic(self, seg_patch, pic_patch):
@@ -155,6 +162,41 @@ class ExamplesGenerator(object):
             return True
         return False
 
+    def create_and_save_image_patch(self, im_arr, new_patch, img_path):
+        new_patch_x_max = new_patch.x_min + new_patch.width  # not inclusive
+        new_patch_y_max = new_patch.y_min + new_patch.height
+        patch_im_arr = im_arr[new_patch.y_min:new_patch_y_max, new_patch.x_min:new_patch_x_max]
+        patch_im = Image.fromarray(patch_im_arr)
+        patch_im = patch_im.resize((self.window_size, self.window_size))
+        patch_im.save(img_path)
+        return patch_im
+
+    def create_and_save_mask(self, full_seg_im, new_patch, mask_path):
+        new_patch_x_max = new_patch.x_min + new_patch.width  # not inclusive
+        new_patch_y_max = new_patch.y_min + new_patch.height
+        patch_seg_im = full_seg_im.crop((new_patch.x_min, new_patch.y_min, new_patch_x_max, new_patch_y_max))
+        patch_seg_im = patch_seg_im.resize((self.window_size, self.window_size))
+        patch_seg_im.save(mask_path)
+        return patch_seg_im
+
+    def create_negative_examples_from_picture(self, canonical_seg_patches, pic_id, pic_patch, im_arr):
+        curr_ex_id = 0
+        offsets = [-negative_ex_min_offset, negative_ex_min_offset]
+        scales = [pow(2, -negative_ex_min_scale), pow(2, negative_ex_min_scale)]
+        for can_seg_patch in canonical_seg_patches:
+            for x_offset_i in offsets:
+                for y_offset_i in offsets:
+                    neg_patch = Patch(x_min=can_seg_patch.x_min + offsets[x_offset_i],
+                                      y_min=can_seg_patch.y_min + offsets[y_offset_i],
+                                      width=can_seg_patch.width, height=can_seg_patch.height)
+                    # TODO- check not exceeding picture
+                    # TODO- check closenes to other segs
+                    neg_path = self.create_path('im', pic_id, curr_ex_id, x_offset_i, y_offset_i, 0, 0)
+                    self.create_and_save_image_patch(im_arr, neg_patch, neg_path)
+                    # TODO- create all-ones mask
+                    curr_ex_id += 1
+        # TODO same for scales (mix?)
+        return 0
 
 class ExampleGeneratorStats(object):
     def __init__(self):
@@ -168,6 +210,9 @@ class ExampleGeneratorStats(object):
         self.seg_too_close_to_edges = 0
         self.seg_success = 0
 
+        self.positives_generated = 0
+        self.negatives_generated = 0
+
     def __str__(self):
         return str('imgs not found: %d\n'
                    'imgs found: %d\n'
@@ -177,9 +222,11 @@ class ExampleGeneratorStats(object):
                    '\t\tseg too small: %d\n'
                    '\t\tseg too close to edges: %d\n'
                    '\t\tseg success: %d\n'
+                   '\t\tpositive examples generated: %d\n'
+                   '\t\tnegative examples generated: %d\n'
                    % (self.img_not_found, self.img_exists, self.img_with_illegal_annotations,
                       self.img_with_legal_annotations, self.seg_too_big, self.seg_too_small,
-                      self.seg_too_close_to_edges, self.seg_success))
+                      self.seg_too_close_to_edges, self.seg_success, self.positives_generated, self.negatives_generated))
 
 
 class Patch(object):
@@ -201,6 +248,6 @@ class Patch(object):
         return [self.width, self.height]
 
 
-eg = ExamplesGenerator('..', 'train2014', 'Results')
-stats_res = eg.generate_positive_examples()
+eg = ExamplesGenerator('..', 'train2014', 'Results/pos', 'Results/neg')
+stats_res = eg.generate_examples()
 print stats_res
