@@ -8,7 +8,8 @@ from Losses import *
 import math
 
 graph_arch_path = 'Resources/graph_architecture_with_transfer.json'
-graph_weights_path = 'Resources/graph_weights_with_transfer.h5'
+# graph_weights_path = 'Resources/graph_weights_with_transfer.h5'
+graph_weights_path = 'Predictions/net-part4'
 original_net_weights_path = 'Resources/vgg16_graph_weights.h5'
 critical_loss = 1000
 
@@ -32,6 +33,7 @@ def test_prediction(imgs, round_num, net, expected_result_arr, expected_masks, o
         binarize_and_save_mask(mask, mask_threshold, prediction_path)
 
     return evaluation
+
 
 def saved_net_exists():
     return os.path.isfile(graph_arch_path) and os.path.isfile(graph_weights_path)
@@ -91,7 +93,7 @@ def prepare_data():
 
 def main():
     losses = []
-    out_path = 'out-loss.txt'
+    out_path = 'Predictions/out-loss.txt'
     out = open(out_path, 'w')
 
     if saved_net_exists():
@@ -118,7 +120,7 @@ def main():
             break
         else:
             losses.append(last_loss)
-            print_debug("Saving net weights for round %d" % i)
+            print_debug("Saving net weights for round %d" % (i+1))
             graph.save_weights('Predictions/net', overwrite=True)
     out.close()
 
