@@ -5,27 +5,33 @@ from FullNetGenerator import *
 from ImageUtils import *
 from keras.optimizers import SGD
 from Losses import *
+import math
 
 graph_arch_path = 'Resources/graph_architecture_with_transfer.json'
 graph_weights_path = 'Resources/graph_weights_with_transfer.h5'
 original_net_weights_path = 'Resources/vgg16_graph_weights.h5'
+critical_loss = 1000
 
 
 def print_debug(str_to_print):
     print '%s: %s' % (datetime.datetime.now(), str_to_print)
 
 
-def test_prediction(imgs, round_num, net, expected_result_arr, expected_masks):
+def test_prediction(imgs, round_num, net, expected_result_arr, expected_masks, out):
     predictions = net.predict({'input': imgs})
     print_debug('prediction %s' % predictions['score_output'])
     evaluation = net.evaluate({'input': imgs, 'score_output': expected_result_arr, 'seg_output': expected_masks},
                               batch_size=1)
     print_debug('evaluation loss %s' % evaluation)
+    out.write('%s\n' % evaluation)
+    out.flush()
+
     for i in range(len(predictions['seg_output'])):
         mask = predictions['seg_output'][i]
         prediction_path = 'Predictions/round%d-pic%d.png' % (round_num, i)
         binarize_and_save_mask(mask, mask_threshold, prediction_path)
 
+    return evaluation
 
 def saved_net_exists():
     return os.path.isfile(graph_arch_path) and os.path.isfile(graph_weights_path)
@@ -51,7 +57,7 @@ def compile_net(net):
     print_debug('compiling net...')
     # sgd = SGD(lr=0.001, decay=0.00005, momentum=0.9, nesterov=True)
     # sgd = SGD(lr=0.0001)
-    sgd = SGD(lr=0.01)
+    sgd = SGD(lr=0.025)
     net.compile(optimizer=sgd, loss={'score_output': binary_regression_error,
                                      'seg_output': mask_binary_regression_error})
     return net
@@ -67,9 +73,9 @@ def save_net(net):
 def prepare_data():
     print_debug('preparing data...')
     img_paths = [
-        'Results/7504-334244-im.png',
-        'Results/17967-564620-im.png',
-        'Results/65582-586231-im.png',
+        'Predictions/49275-427041-0-0-1-1-im.png',
+        'Predictions/131909-1304103-0-0-1-1-mir-im.png',
+        'Predictions/155749-1441236-0-0-1-1-im.png',
         ]
     images = prepare_local_images(img_paths)
 
@@ -84,6 +90,10 @@ def prepare_data():
 
 
 def main():
+    losses = []
+    out_path = 'out-loss.txt'
+    out = open(out_path, 'w')
+
     if saved_net_exists():
         graph = load_saved_net()
     else:
@@ -94,14 +104,23 @@ def main():
     [images, expected_result_arr, expected_masks] = prepare_data()
 
     print_debug('running net...')
-    test_prediction(images, 0, graph, expected_result_arr, expected_masks)
+    losses.append(test_prediction(images, 0, graph, expected_result_arr, expected_masks, out))
 
-    epochs = 10
+    epochs = 50
     for i in range(epochs):
         print_debug('starting round %d:' % (i+1))
         graph.fit({'input': images, 'seg_output': expected_masks, 'score_output': expected_result_arr},
                             nb_epoch=2, verbose=0)
-        test_prediction(images, i+1, graph, expected_result_arr, expected_masks)
+        last_loss = test_prediction(images, i+1, graph, expected_result_arr, expected_masks, out)
+
+        if math.isnan(last_loss) or math.isinf(last_loss) or last_loss >= critical_loss:
+            print_debug("Loss %s too big- stopping" % losses[-1])
+            break
+        else:
+            losses.append(last_loss)
+            print_debug("Saving net weights for round %d" % i)
+            graph.save_weights('Predictions/net', overwrite=True)
+    out.close()
 
 
 if __name__ == "__main__":
