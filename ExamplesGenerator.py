@@ -1,7 +1,6 @@
 from CocoUtils import *
 from PIL import Image, ImageOps
 import os
-from math import pow
 from Constants import input_pic_size, max_centered_object_dimension, translation_shift, scale_deformation
 
 
@@ -46,102 +45,76 @@ class ExamplesGenerator(object):
             if examples_to_generate == stats.seg_success:
                 # generated enough
                 break
-
         return stats
 
     def create_positive_example(self, pic_data, segmentation, pic_path, pic_id, stats):
-
         seg_id = segmentation['id']
 
         # bbs - [x y w h]
         bbox = segmentation['bbox']
-        seg_height = bbox[3]
-        seg_width = bbox[2]
+        bbox_patch = Patch(x_min=bbox[0], width=bbox[2], y_min=bbox[1], height=bbox[3])
+        [seg_width, seg_height] = bbox_patch.size()
 
-        max_dim = round(max(seg_height, seg_width))
-        if max_dim > self.max_object_size:
-            if self.debug:
-                print 'segment %d in picture %d is too big' % (seg_id, pic_id)
-            stats.seg_too_big += 1
+        if self.segment_size_not_right(seg_width, seg_height, seg_id, pic_id, stats):
             return
 
-        if max_dim < self.max_object_size:
-            if self.debug:
-                print 'segment %d in picture %d is too small' % (seg_id, pic_id)
-            stats.seg_too_small += 1
-            return
+        pic_patch = Patch(x_min=0, y_min=0, height=pic_data['height'], width=pic_data['width'])
+        [seg_center_x, seg_center_y] = bbox_patch.center()
 
-        pic_height = pic_data['height']
-        pic_width = pic_data['width']
+        seg_patch = Patch(x_min=seg_center_x - self.window_size / 2, y_min=seg_center_y - self.window_size / 2,
+                          height=self.window_size, width=self.window_size)
 
-        seg_center_x = bbox[0] + seg_width / 2
-        seg_center_y = bbox[1] + seg_height / 2
-
-        patch_min_x = seg_center_x - self.window_size / 2
-        patch_max_x = seg_center_x + self.window_size / 2
-        patch_min_y = seg_center_y - self.window_size / 2
-        patch_max_y = seg_center_y + self.window_size / 2
-
-        if self.patch_exceeds_pic(patch_min_x, patch_min_y, patch_max_x, patch_max_y, pic_width, pic_height):
+        if self.patch_exceeds_pic(seg_patch, pic_patch):
             if self.debug:
                 print 'segment %d in picture %d cannot be centered (too close to the edges)' % (seg_id, pic_id)
             stats.seg_too_close_to_edges += 1
             return
 
         im_arr = io.imread(pic_path)
+        [pic_width, pic_height] = pic_patch.size()
         seg_im = self.coco_utils.get_annotation_image(segmentation, pic_width, pic_height)
 
-        self.create_noisy_and_regular_pictures(im_arr, seg_im, patch_min_x, patch_max_x, patch_min_y, patch_max_y,
-                                               pic_width, pic_height, pic_id, seg_id, bbox)
+        self.create_noisy_and_regular_pictures(im_arr, seg_im, seg_patch, pic_patch, bbox_patch, pic_id, seg_id)
         stats.seg_success += 1
 
-    def create_noisy_and_regular_pictures(self, im_arr, seg_im, patch_min_x, patch_max_x, patch_min_y, patch_max_y,
-                                          pic_width, pic_height, pic_id, seg_id, bbox):
-
-        if self.patch_exceeds_pic(patch_min_x, patch_min_y, patch_max_x, patch_max_y, pic_width, pic_height):
-            return
-
-        patch_center_x = (patch_min_x + patch_max_x) / 2
-        patch_center_y = (patch_min_y + patch_max_y) / 2
-
+    def create_noisy_and_regular_pictures(self, im_arr, full_seg_im, orig_seg_patch, pic_patch, bbox_patch, pic_id, seg_id):
         offsets = [-translation_shift, 0, translation_shift]
         scales = [pow(2.0, scale_deformation), 1, pow(2.0, -scale_deformation)]
+
+        [orig_patch_center_x, orig_patch_center_y] = orig_seg_patch.center()
+        [orig_patch_width, orig_patch_height] = orig_seg_patch.size()
 
         for x_scale_i in range(len(scales)):
             for y_scale_i in range(len(scales)):
                 for x_offset_i in range(len(offsets)):
                     for y_offset_i in range(len(offsets)):
 
-                        new_patch_width = (patch_max_x - patch_min_x) * scales[x_scale_i]
-                        new_patch_height = (patch_max_y - patch_min_y) * scales[y_scale_i]
+                        new_patch_width = orig_patch_width * scales[x_scale_i]
+                        new_patch_height = orig_patch_height * scales[y_scale_i]
+                        new_patch_min_x = orig_patch_center_x - new_patch_width / 2 + offsets[x_offset_i]
+                        new_patch_min_y = orig_patch_center_y - new_patch_height / 2 + offsets[y_offset_i]
+                        new_patch = Patch(new_patch_min_x, new_patch_width, new_patch_min_y, new_patch_height)
 
-                        cur_patch_min_x = patch_center_x - new_patch_width / 2 + offsets[x_offset_i]
-                        cur_patch_max_x = patch_center_x + new_patch_width / 2 + offsets[x_offset_i]
-                        cur_patch_min_y = patch_center_y - new_patch_height / 2 + offsets[y_offset_i]
-                        cur_patch_max_y = patch_center_y + new_patch_height / 2 + offsets[y_offset_i]
-
-                        if self.patch_exceeds_pic(cur_patch_min_x, cur_patch_min_y, cur_patch_max_x, cur_patch_max_y,
-                                                  pic_width, pic_height):
+                        if self.patch_exceeds_pic(new_patch, pic_patch):
                             print 'exceeding pic size'
                             continue
 
-                        tag = ''
-                        if self.patch_exceeds_seg(cur_patch_min_x, cur_patch_min_y, cur_patch_max_x, cur_patch_max_y,
-                                                  bbox):
+                        if self.patch_exceeds_seg(new_patch, bbox_patch):
                             print 'exceeding: xs %s ys %s xo %s yo %s' % (x_scale_i, y_scale_i, x_offset_i, y_offset_i)
-                            # continue
-                            tag = 'ex'
+                            continue
 
-                        patch_im_arr = im_arr[cur_patch_min_y:cur_patch_max_y, cur_patch_min_x:cur_patch_max_x]
+                        new_patch_x_max = new_patch.x_min + new_patch.width  # not inclusive
+                        new_patch_y_max = new_patch.y_min + new_patch.height
+
+                        patch_im_arr = im_arr[new_patch.y_min:new_patch_y_max, new_patch.x_min:new_patch_x_max]
                         patch_im = Image.fromarray(patch_im_arr)
                         patch_im = patch_im.resize((self.window_size, self.window_size))
-                        patch_im.save(self.create_path('im' + tag, pic_id, seg_id,
+                        patch_im.save(self.create_path('im', pic_id, seg_id,
                                                        x_offset_i, y_offset_i, x_scale_i, y_scale_i))
 
-                        patch_seg_im = seg_im.crop((int(cur_patch_min_x), int(cur_patch_min_y),
-                                                    int(cur_patch_max_x), int(cur_patch_max_y)))
+                        patch_seg_im = full_seg_im.crop((new_patch.x_min, new_patch.y_min, new_patch_x_max, new_patch_y_max))
                         patch_seg_im = patch_seg_im.resize((self.window_size, self.window_size))
-                        patch_seg_im.save(self.create_path('mask' + tag, pic_id, seg_id,
+                        patch_seg_im.save(self.create_path('mask', pic_id, seg_id,
                                                            x_offset_i, y_offset_i, x_scale_i, y_scale_i))
 
                         if self.debug:
@@ -161,12 +134,26 @@ class ExamplesGenerator(object):
         return str('%s/%d-%d-%d-%d-%d-%d-%s.png' % (self.output_dir, pic_id, seg_id, offset_x, offset_y,
                                                     x_scale, y_scale, im_type))
 
-    def patch_exceeds_pic(self, patch_min_x, patch_min_y, patch_max_x, patch_max_y, pic_width, pic_height):
-        return patch_min_x < 0 or patch_min_y < 0 or patch_max_x > pic_width or patch_max_y > pic_height
+    def patch_exceeds_pic(self, seg_patch, pic_patch):
+        return not pic_patch.contains(seg_patch)
 
-    def patch_exceeds_seg(self, cur_patch_min_x, cur_patch_min_y, cur_patch_max_x, cur_patch_max_y, bbox):
-        return cur_patch_min_x > bbox[0] or cur_patch_max_x < bbox[0] + bbox[2] \
-               or cur_patch_min_y > bbox[1] or cur_patch_max_y < bbox[1] + bbox[3]
+    def patch_exceeds_seg(self, seg_patch, bbox_patch):
+        return not seg_patch.contains(bbox_patch)
+
+    def segment_size_not_right(self, seg_width, seg_height, seg_id, pic_id, stats):
+        max_dim = max(seg_height, seg_width)
+        if max_dim > self.max_object_size:
+            if self.debug:
+                print 'segment %d in picture %d is too big' % (seg_id, pic_id)
+            stats.seg_too_big += 1
+            return True
+
+        if max_dim < self.max_object_size:
+            if self.debug:
+                print 'segment %d in picture %d is too small' % (seg_id, pic_id)
+            stats.seg_too_small += 1
+            return True
+        return False
 
 
 class ExampleGeneratorStats(object):
@@ -196,15 +183,22 @@ class ExampleGeneratorStats(object):
 
 
 class Patch(object):
-    def __init__(self, x_min, x_max, y_min, y_max):
-        self.x_min = int(x_min)
-        self.x_max = int(x_max)
-        self.y_min = int(y_min)
-        self.y_max = int(y_max)
+    def __init__(self, x_min, width, y_min, height):
+        self.x_min = int(round(x_min))
+        self.width = int(round(width))
+        self.y_min = int(round(y_min))
+        self.height = int(round(height))
 
-    def is_contained(self, container_patch):
-        return self.x_min >= container_patch.x_min and self.x_max <= container_patch.x_max\
-               and self.y_min >= container_patch.y_min and self.y_max <= container_patch.y_max
+    def contains(self, contained_patch):
+        return (self.x_min <= contained_patch.x_min and self.y_min <= contained_patch.y_min
+                and self.x_min + self.width >= contained_patch.x_min + contained_patch.width
+                and self.y_min + self.height >= contained_patch.y_min + contained_patch.height)
+
+    def center(self):
+        return [self.x_min + self.width / 2, self.y_min + self.height / 2]
+
+    def size(self):
+        return [self.width, self.height]
 
 
 eg = ExamplesGenerator('..', 'train2014', 'Results')
