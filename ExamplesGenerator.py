@@ -58,7 +58,7 @@ class ExamplesGenerator(object):
                 stats.negatives_generated += negatives
 
             if (examples_to_generate is not None
-                and examples_to_generate <= stats.positives_generated + stats.negatives_generated):
+               and examples_to_generate <= stats.positives_generated + stats.negatives_generated):
                 print 'Generated enough examples- stopping'
                 break
         return stats
@@ -105,52 +105,48 @@ class ExamplesGenerator(object):
         [orig_patch_center_x, orig_patch_center_y] = orig_seg_patch.center()
         [orig_patch_width, orig_patch_height] = orig_seg_patch.size()
 
-        for x_scale_i in range(len(scales)):
-            for y_scale_i in range(len(scales)):
-                for x_offset_i in range(len(offsets)):
-                    for y_offset_i in range(len(offsets)):
+        for scale_i in range(len(scales)):
+            for x_offset_i in range(len(offsets)):
+                for y_offset_i in range(len(offsets)):
 
-                        new_patch_width = orig_patch_width * scales[x_scale_i]
-                        new_patch_height = orig_patch_height * scales[y_scale_i]
-                        new_patch_min_x = orig_patch_center_x - new_patch_width / 2 + offsets[x_offset_i]
-                        new_patch_min_y = orig_patch_center_y - new_patch_height / 2 + offsets[y_offset_i]
-                        new_patch = Patch(new_patch_min_x, new_patch_width, new_patch_min_y, new_patch_height)
+                    new_patch_width = orig_patch_width * scales[scale_i]
+                    new_patch_height = orig_patch_height * scales[scale_i]
+                    new_patch_min_x = orig_patch_center_x - new_patch_width / 2 + offsets[x_offset_i]
+                    new_patch_min_y = orig_patch_center_y - new_patch_height / 2 + offsets[y_offset_i]
+                    new_patch = Patch(new_patch_min_x, new_patch_width, new_patch_min_y, new_patch_height)
 
-                        if self.patch_exceeds_pic(new_patch, pic_patch):
-                            stats.pos_noisy_seg_too_close_to_edges += 1
-                            continue
+                    if self.patch_exceeds_pic(new_patch, pic_patch):
+                        stats.pos_noisy_seg_too_close_to_edges += 1
+                        continue
 
-                        if self.patch_exceeds_seg(new_patch, bbox_patch):
-                            # this will not happen with the default constants (input size, max object dimension)
-                            stats.pos_noisy_seg_cuts_seg += 1
-                            continue
+                    if self.patch_exceeds_seg(new_patch, bbox_patch):
+                        # this will not happen with the default constants (input size, max object dimension)
+                        stats.pos_noisy_seg_cuts_seg += 1
+                        continue
 
-                        img_path = self.create_path(self.positive_output_dir, 'pos', 'im', pic_id, seg_id, x_offset_i,
-                                                    y_offset_i, x_scale_i, y_scale_i)
-                        patch_im = self.create_and_save_image_patch(im_arr, new_patch, img_path)
+                    img_path = self.create_path(self.positive_output_dir, 'pos', 'im', pic_id, seg_id, x_offset_i,
+                                                y_offset_i, scale_i)
+                    patch_im = self.create_and_save_image_patch(im_arr, new_patch, img_path)
 
-                        mask_path = self.create_path(self.positive_output_dir, 'pos', 'mask', pic_id, seg_id,
-                                                     x_offset_i, y_offset_i, x_scale_i, y_scale_i)
-                        patch_seg_im = self.create_and_save_mask(full_seg_im, new_patch, mask_path)
+                    mask_path = self.create_path(self.positive_output_dir, 'pos', 'mask', pic_id, seg_id,
+                                                 x_offset_i, y_offset_i, scale_i)
+                    patch_seg_im = self.create_and_save_mask(full_seg_im, new_patch, mask_path)
 
-                        self.create_and_save_mirror(self.positive_output_dir, 'pos', patch_seg_im, patch_im, pic_id,
-                                                    seg_id, x_offset_i, y_offset_i, x_scale_i, y_scale_i)
+                    self.create_and_save_mirror(self.positive_output_dir, 'pos', patch_seg_im, patch_im, pic_id,
+                                                seg_id, x_offset_i, y_offset_i, scale_i)
 
-                        created_examples += 2  # example and mirror
+                    created_examples += 2  # example and mirror
         return created_examples
 
-    def create_and_save_mirror(self, base_dir, ex_type, mask, im_patch, pic_id, seg_id, x_offset, y_offset,
-                               x_scale, y_scale):
+    def create_and_save_mirror(self, base_dir, ex_type, mask, im_patch, pic_id, seg_id, x_offset, y_offset, scale):
         mir_im = ImageOps.mirror(im_patch)
-        mir_im.save(self.create_path(base_dir, ex_type, 'mir-im', pic_id, seg_id, x_offset, y_offset,
-                                     x_scale, y_scale))
+        mir_im.save(self.create_path(base_dir, ex_type, 'mir-im', pic_id, seg_id, x_offset, y_offset, scale))
         mir_mask = ImageOps.mirror(mask)
-        mir_mask.save(self.create_path(base_dir, ex_type, 'mir-mask', pic_id, seg_id, x_offset, y_offset,
-                                       x_scale, y_scale))
+        mir_mask.save(self.create_path(base_dir, ex_type, 'mir-mask', pic_id, seg_id, x_offset, y_offset, scale))
 
-    def create_path(self, base_dir, ex_type, im_type, pic_id, seg_id, offset_x, offset_y, x_scale, y_scale):
-        return str('%s/%s-%d-%d-%d-%d-%d-%d-%s.png' % (base_dir, ex_type, pic_id, seg_id, offset_x, offset_y,
-                                                       x_scale, y_scale, im_type))
+    def create_path(self, base_dir, ex_type, im_type, pic_id, seg_id, offset_x, offset_y, scale):
+        return str('%s/%s-%d-%d-%d-%d-%d-%s.png' % (base_dir, ex_type, pic_id, seg_id, offset_x, offset_y,
+                                                    scale, im_type))
 
     def patch_exceeds_pic(self, seg_patch, pic_patch):
         return not pic_patch.contains(seg_patch)
@@ -178,7 +174,7 @@ class ExamplesGenerator(object):
         new_patch_y_max = new_patch.y_min + new_patch.height
         patch_im_arr = im_arr[new_patch.y_min:new_patch_y_max, new_patch.x_min:new_patch_x_max]
         patch_im = Image.fromarray(patch_im_arr)
-        patch_im = patch_im.resize((self.window_size, self.window_size))
+        patch_im = patch_im.resize((self.window_size, self.window_size), Image.ANTIALIAS)
         patch_im.save(img_path)
         return patch_im
 
@@ -186,7 +182,7 @@ class ExamplesGenerator(object):
         new_patch_x_max = new_patch.x_min + new_patch.width  # not inclusive
         new_patch_y_max = new_patch.y_min + new_patch.height
         patch_seg_im = full_seg_im.crop((new_patch.x_min, new_patch.y_min, new_patch_x_max, new_patch_y_max))
-        patch_seg_im = patch_seg_im.resize((self.window_size, self.window_size))
+        patch_seg_im = patch_seg_im.resize((self.window_size, self.window_size), Image.ANTIALIAS)
         patch_seg_im.save(mask_path)
         return patch_seg_im
 
@@ -195,9 +191,9 @@ class ExamplesGenerator(object):
         examples_generated = 0
         can_seg_patch_centers = [seg.center() for seg in canonical_seg_patches]
 
-        # including neutral constants to allow one dimension noise
+        # including neutral translation to allow one dimension noise
         offsets = [-negative_ex_min_offset, 0, negative_ex_min_offset]
-        scales = [pow(2, -negative_ex_min_scale), 1, pow(2, negative_ex_min_scale)]
+        scales = [pow(2, -negative_ex_min_scale), pow(2, negative_ex_min_scale)]
 
         for can_seg_patch in canonical_seg_patches:
             [can_patch_center_x, can_patch_center_y] = can_seg_patch.center()
@@ -220,44 +216,38 @@ class ExamplesGenerator(object):
                         stats.neg_seg_too_close_to_edges += 1
                         continue
                     neg_path = self.create_path(self.negative_output_dir, 'neg', 'im', pic_id, curr_ex_id,
-                                                xoi, yoi, 0, 0)
+                                                xoi, yoi, 0)
                     im_patch = self.create_and_save_image_patch(im_arr, neg_patch, neg_path)
                     mask_path = self.create_path(self.negative_output_dir, 'neg', 'mask', pic_id, curr_ex_id,
-                                                 xoi, yoi, 0, 0)
+                                                 xoi, yoi, 0)
                     self.empty_mask.save(mask_path)
                     self.create_and_save_mirror(self.negative_output_dir, 'neg', self.empty_mask, im_patch,
-                                                pic_id, curr_ex_id, xoi, yoi, 0, 0)
+                                                pic_id, curr_ex_id, xoi, yoi, 0)
                     curr_ex_id += 1
                     examples_generated += 2  # pic + mirror
 
-            # TODO- scale with aspect ratio kept- otherwise we might scale the lesser dimension, and the mask is legal
-            for xsi, x_scale in enumerate(scales):
-                for ysi, y_scale in enumerate(scales):
+            # scale with aspect ratio kept- otherwise we might scale the lesser dimension, and the mask is legal
+            for scale_i, scale in enumerate(scales):
 
-                    if x_scale == 1 and y_scale == 1:
-                        continue  # no alteration
+                neg_patch_width = can_seg_patch.width * scale
+                neg_patch_height = can_seg_patch.height * scale
+                neg_patch_min_x = can_patch_center_x - neg_patch_width / 2
+                neg_patch_min_y = can_patch_center_y - neg_patch_height / 2
+                neg_patch = Patch(x_min=neg_patch_min_x, width=neg_patch_width,
+                                  y_min=neg_patch_min_y, height=neg_patch_height)
 
-                    neg_patch_width = can_seg_patch.width * x_scale
-                    neg_patch_height = can_seg_patch.height * y_scale
-                    neg_patch_min_x = can_patch_center_x - neg_patch_width / 2
-                    neg_patch_min_y = can_patch_center_y - neg_patch_height / 2
-                    neg_patch = Patch(x_min=neg_patch_min_x, width=neg_patch_width,
-                                      y_min=neg_patch_min_y, height=neg_patch_height)
-
-                    # if we only scale, we do allow the center to be close to another seg
-                    if self.patch_exceeds_pic(neg_patch, pic_patch):
-                        stats.neg_seg_too_close_to_edges += 1
-                        continue
-                    neg_path = self.create_path(self.negative_output_dir, 'neg', 'im', pic_id, curr_ex_id,
-                                                0, 0, xsi, ysi)
-                    im_patch = self.create_and_save_image_patch(im_arr, neg_patch, neg_path)
-                    mask_path = self.create_path(self.negative_output_dir, 'neg', 'mask', pic_id, curr_ex_id,
-                                                 0, 0, xsi, ysi)
-                    self.empty_mask.save(mask_path)
-                    self.create_and_save_mirror(self.negative_output_dir, 'neg', self.empty_mask, im_patch,
-                                                pic_id, curr_ex_id, 0, 0, xsi, ysi)
-                    curr_ex_id += 1
-                    examples_generated += 2  # pic + mirror
+                # if we only scale, we do allow the center to be close to another seg
+                if self.patch_exceeds_pic(neg_patch, pic_patch):
+                    stats.neg_seg_too_close_to_edges += 1
+                    continue
+                neg_path = self.create_path(self.negative_output_dir, 'neg', 'im', pic_id, curr_ex_id, 0, 0, scale_i)
+                im_patch = self.create_and_save_image_patch(im_arr, neg_patch, neg_path)
+                mask_path = self.create_path(self.negative_output_dir, 'neg', 'mask', pic_id, curr_ex_id, 0, 0, scale_i)
+                self.empty_mask.save(mask_path)
+                self.create_and_save_mirror(self.negative_output_dir, 'neg', self.empty_mask, im_patch,
+                                            pic_id, curr_ex_id, 0, 0, scale_i)
+                curr_ex_id += 1
+                examples_generated += 2  # pic + mirror
 
         return examples_generated
 
