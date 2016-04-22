@@ -8,10 +8,10 @@ from Losses import *
 import math
 
 graph_arch_path = 'Resources/graph_architecture_with_transfer.json'
-# graph_weights_path = 'Resources/graph_weights_with_transfer.h5'
-graph_weights_path = 'Predictions/net-part4'
+#graph_weights_path = 'Resources/graph_weights_with_transfer.h5'
+graph_weights_path = 'Predictions/net'
 original_net_weights_path = 'Resources/vgg16_graph_weights.h5'
-critical_loss = 1000
+critical_loss = 500
 
 
 def print_debug(str_to_print):
@@ -24,7 +24,7 @@ def test_prediction(imgs, round_num, net, expected_result_arr, expected_masks, o
     evaluation = net.evaluate({'input': imgs, 'score_output': expected_result_arr, 'seg_output': expected_masks},
                               batch_size=1)
     print_debug('evaluation loss %s' % evaluation)
-    out.write('%s\n' % evaluation)
+    out.write('%s loss: %s\n' % (datetime.datetime.now(), evaluation))
     out.flush()
 
     for i in range(len(predictions['seg_output'])):
@@ -59,7 +59,7 @@ def compile_net(net):
     print_debug('compiling net...')
     # sgd = SGD(lr=0.001, decay=0.00005, momentum=0.9, nesterov=True)
     # sgd = SGD(lr=0.0001)
-    sgd = SGD(lr=0.025)
+    sgd = SGD(lr=0.03)
     net.compile(optimizer=sgd, loss={'score_output': binary_regression_error,
                                      'seg_output': mask_binary_regression_error})
     return net
@@ -75,18 +75,17 @@ def save_net(net):
 def prepare_data():
     print_debug('preparing data...')
     img_paths = [
-        'Predictions/49275-427041-0-0-1-1-im.png',
-        'Predictions/131909-1304103-0-0-1-1-mir-im.png',
-        'Predictions/155749-1441236-0-0-1-1-im.png',
+        'Predictions/neg-828-8-0-0-0-mir-im.png',
+        'Predictions/pos-828-651686-0-0-0-im.png',
         ]
     images = prepare_local_images(img_paths)
 
     expected_mask_paths = [str.replace(img_path, 'im', 'mask') for img_path in img_paths]
     expected_masks = prepare_expected_masks(expected_mask_paths)
 
-    expected_result = 1
-    expected_result_arr = np.array([expected_result])
-    expected_result_arr = np.tile(expected_result_arr, (len(img_paths), 1))
+    expected_results = [-1, 1]
+
+    expected_result_arr = np.array([[res] for res in expected_results])
 
     return [images, expected_result_arr, expected_masks]
 
@@ -94,7 +93,7 @@ def prepare_data():
 def main():
     losses = []
     out_path = 'Predictions/out-loss.txt'
-    out = open(out_path, 'w')
+    out = open(out_path, 'a')
 
     if saved_net_exists():
         graph = load_saved_net()
@@ -109,10 +108,13 @@ def main():
     losses.append(test_prediction(images, 0, graph, expected_result_arr, expected_masks, out))
 
     epochs = 50
-    for i in range(epochs):
+    epochs_to_backup_weights = 5
+    last_i = 4
+
+    for i in range(last_i, epochs):
         print_debug('starting round %d:' % (i+1))
-        graph.fit({'input': images, 'seg_output': expected_masks, 'score_output': expected_result_arr},
-                            nb_epoch=2, verbose=0)
+        graph.fit({'input': images, 'seg_output': expected_masks, 'score_output': expected_result_arr}, nb_epoch=1,
+                  verbose=0)
         last_loss = test_prediction(images, i+1, graph, expected_result_arr, expected_masks, out)
 
         if math.isnan(last_loss) or math.isinf(last_loss) or last_loss >= critical_loss:
@@ -122,6 +124,10 @@ def main():
             losses.append(last_loss)
             print_debug("Saving net weights for round %d" % (i+1))
             graph.save_weights('Predictions/net', overwrite=True)
+
+        if i % epochs_to_backup_weights == 0:
+            graph.save_weights('Predictions/net%d' % i)
+
     out.close()
 
 

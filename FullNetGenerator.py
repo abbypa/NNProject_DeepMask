@@ -1,6 +1,5 @@
 from VggDNetGraphProvider import *
 from keras.layers.core import Reshape
-# TODO from keras.layers.convolutional import UpSampling2D
 
 
 class FullNetGenerator(object):
@@ -33,8 +32,6 @@ class FullNetGenerator(object):
         graph.add_node(Dense(512), name='seg_dense1', input='seg_flat')  # no activation here!
         graph.add_node(Dense(56*56), name='seg_dense2', input='seg_dense1')
         graph.add_node(Reshape(dims=(56, 56)), name='seg_reshape', input='seg_dense2')
-        # graph.add_node(UpSampling2D(size=(4, 4)), name='seg_upsample', input='seg_reshape')
-        # TODO- bilinear upsampling layer
         graph.add_output(input='seg_reshape', name='seg_output')
 
 
