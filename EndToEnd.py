@@ -7,8 +7,17 @@ from keras.optimizers import SGD
 from Losses import *
 import math
 
-graph_arch_path = 'Resources/graph_architecture_conv.json'
-graph_weights_path = 'Resources/graph_weights_conv.h5'
+sgd_lr = 0.001
+sgd_decay = 0.00005
+sgd_momentum = 0.9
+
+batch_size = 32
+last_i = 3
+epochs = 50
+epochs_to_backup_weights = 5
+
+graph_arch_path = 'Resources/graph_architecture_with_transfer.json'
+graph_weights_path = 'Resources/graph_weights_with_transfer.h5'
 original_net_weights_path = 'Resources/vgg16_graph_weights.h5'
 critical_loss = 500
 
@@ -57,9 +66,7 @@ def create_net():
 
 def compile_net(net):
     print_debug('compiling net...')
-    # sgd = SGD(lr=0.001, decay=0.00005, momentum=0.9, nesterov=True)
-    # sgd = SGD(lr=0.0001)
-    sgd = SGD(lr=0.03)
+    sgd = SGD(lr=sgd_lr, decay=sgd_decay, momentum=sgd_momentum, nesterov=True)
     net.compile(optimizer=sgd, loss={'score_output': binary_regression_error,
                                      'seg_output': mask_binary_regression_error})
     return net
@@ -75,15 +82,16 @@ def save_net(net):
 def prepare_data():
     print_debug('preparing data...')
     img_paths = [
-        'Predictions/neg-828-8-0-0-0-mir-im.png',
-        'Predictions/pos-828-651686-0-0-0-im.png',
+        'Predictions/49275-427041-0-0-1-1-im.png',
+        'Predictions/131909-1304103-0-0-1-1-mir-im.png',
+        'Predictions/155749-1441236-0-0-1-1-im.png',
         ]
     images = prepare_local_images(img_paths)
 
     expected_mask_paths = [str.replace(img_path, 'im', 'mask') for img_path in img_paths]
     expected_masks = prepare_expected_masks(expected_mask_paths)
 
-    expected_results = [-1, 1]
+    expected_results = [1, 1, 1]
 
     expected_result_arr = np.array([[res] for res in expected_results])
 
@@ -105,11 +113,7 @@ def main():
     [images, expected_result_arr, expected_masks] = prepare_data()
 
     print_debug('running net...')
-    losses.append(test_prediction(images, 0, graph, expected_result_arr, expected_masks, out))
-
-    epochs = 50
-    epochs_to_backup_weights = 5
-    last_i = 0
+    losses.append(test_prediction(images, last_i, graph, expected_result_arr, expected_masks, out))
 
     for i in range(last_i, epochs):
         print_debug('starting round %d:' % (i+1))

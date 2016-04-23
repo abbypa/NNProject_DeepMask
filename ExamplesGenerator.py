@@ -192,8 +192,10 @@ class ExamplesGenerator(object):
         can_seg_patch_centers = [seg.center() for seg in canonical_seg_patches]
 
         # including neutral translation to allow one dimension noise
-        offsets = [-negative_ex_min_offset, 0, negative_ex_min_offset]
-        scales = [pow(2, -negative_ex_min_scale), pow(2, negative_ex_min_scale)]
+        offsets = [-negative_ex_min_offset * 1.5, -negative_ex_min_offset, 0,
+                   negative_ex_min_offset, negative_ex_min_offset * 1.5]
+        scales = [pow(2, -negative_ex_min_scale-0.5), pow(2, -negative_ex_min_scale),
+                  pow(2, negative_ex_min_scale), pow(2, negative_ex_min_scale+0.5)]
 
         for can_seg_patch in canonical_seg_patches:
             [can_patch_center_x, can_patch_center_y] = can_seg_patch.center()
@@ -326,6 +328,6 @@ class Patch(object):
         return [self.width, self.height]
 
 
-eg = ExamplesGenerator('..', 'train2014', 'images_train', 'Results/pos-train', 'Results/neg-train')
+eg = ExamplesGenerator('..', 'val2014', 'images_val', 'Results/pos-val', 'Results/neg-val')
 stats_res = eg.generate_examples(100000)
 print stats_res

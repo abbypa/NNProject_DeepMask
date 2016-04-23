@@ -5,7 +5,7 @@ seg_output_lambda = 1
 # mask
 mask_pic_true_color = 255
 mask_pic_false_color = 0
-mask_threshold = 0.1
+mask_threshold = 0.2
 
 # pic sizes
 input_pic_size = 224
