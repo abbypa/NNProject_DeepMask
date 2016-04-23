@@ -5,8 +5,8 @@ from PIL import Image
 from Constants import mask_pic_true_color, mask_pic_false_color, input_pic_size, output_mask_size
 
 
-def prepare_local_images(img_paths):
-    prepared_imgs = [prepare_image(cv2.imread(img_path)) for img_path in img_paths]
+def prepare_local_images(img_paths, normalize=True, resize=False):
+    prepared_imgs = [prepare_image(cv2.imread(img_path), normalize=normalize, resize=resize) for img_path in img_paths]
     return np.stack(prepared_imgs)
 
 
@@ -17,8 +17,15 @@ def prepare_url_image(img_url):
     return prepare_image(image)
 
 
-def prepare_image(img, normalize=True):
-    im = cv2.resize(img, (input_pic_size, input_pic_size)).astype(np.float32)
+def prepare_image(img, normalize=True, resize=False):
+    if img.shape != (input_pic_size, input_pic_size, 3):
+        print 'Wrong img size!'
+        if resize:
+            im = cv2.resize(img, (input_pic_size, input_pic_size)).astype(np.float32)
+        else:
+            return None
+    else:
+        im = img.astype(np.float32)
     # normalization according to mean pixel value (provided by vgg training)
     if normalize:
         im[:, :, 0] -= 103.939

@@ -7,9 +7,8 @@ from keras.optimizers import SGD
 from Losses import *
 import math
 
-graph_arch_path = 'Resources/graph_architecture_with_transfer.json'
-#graph_weights_path = 'Resources/graph_weights_with_transfer.h5'
-graph_weights_path = 'Predictions/net'
+graph_arch_path = 'Resources/graph_architecture_conv.json'
+graph_weights_path = 'Resources/graph_weights_conv.h5'
 original_net_weights_path = 'Resources/vgg16_graph_weights.h5'
 critical_loss = 500
 
@@ -20,11 +19,12 @@ def print_debug(str_to_print):
 
 def test_prediction(imgs, round_num, net, expected_result_arr, expected_masks, out):
     predictions = net.predict({'input': imgs})
-    print_debug('prediction %s' % predictions['score_output'])
+    score_predictions = predictions['score_output'].flatten()
+    print_debug('prediction %s' % score_predictions)
     evaluation = net.evaluate({'input': imgs, 'score_output': expected_result_arr, 'seg_output': expected_masks},
                               batch_size=1)
     print_debug('evaluation loss %s' % evaluation)
-    out.write('%s loss: %s\n' % (datetime.datetime.now(), evaluation))
+    out.write('%s,%s,%s\n' % (datetime.datetime.now(), evaluation, score_predictions))
     out.flush()
 
     for i in range(len(predictions['seg_output'])):
@@ -92,7 +92,7 @@ def prepare_data():
 
 def main():
     losses = []
-    out_path = 'Predictions/out-loss.txt'
+    out_path = 'Predictions/out-loss.csv'
     out = open(out_path, 'a')
 
     if saved_net_exists():
@@ -109,7 +109,7 @@ def main():
 
     epochs = 50
     epochs_to_backup_weights = 5
-    last_i = 4
+    last_i = 0
 
     for i in range(last_i, epochs):
         print_debug('starting round %d:' % (i+1))

@@ -6,9 +6,9 @@ from Constants import input_pic_size, max_centered_object_dimension, translation
 
 
 class ExamplesGenerator(object):
-    def __init__(self, data_dir, data_type, positive_output_dir, negative_output_dir, debug=False):
+    def __init__(self, data_dir, data_type, input_dir, positive_output_dir, negative_output_dir, debug=False):
         self.coco_utils = CocoUtils(data_dir, data_type)
-        self.images_dir = '%s/annotations/images/' % data_dir
+        self.images_dir = '%s/annotations/%s/' % (data_dir, input_dir)
         self.window_size = input_pic_size
         self.max_object_size = max_centered_object_dimension
         self.debug = debug
@@ -326,6 +326,6 @@ class Patch(object):
         return [self.width, self.height]
 
 
-eg = ExamplesGenerator('..', 'train2014', 'Results/pos', 'Results/neg')
-stats_res = eg.generate_examples(3000)
+eg = ExamplesGenerator('..', 'train2014', 'images_train', 'Results/pos-train', 'Results/neg-train')
+stats_res = eg.generate_examples(100000)
 print stats_res
