@@ -328,6 +328,7 @@ class Patch(object):
         return [self.width, self.height]
 
 
-eg = ExamplesGenerator('..', 'val2014', 'images_val', 'Results/pos-val', 'Results/neg-val')
-stats_res = eg.generate_examples(100000)
+# eg = ExamplesGenerator('..', 'val2014', 'images_val', 'Results/pos-val', 'Results/neg-val')
+eg = ExamplesGenerator('..', 'train2014', 'images_train', 'Results/pos-train', 'Results/neg-train')
+stats_res = eg.generate_examples()
 print stats_res
