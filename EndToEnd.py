@@ -7,7 +7,6 @@ from ImageUtils import *
 from keras.optimizers import SGD
 from Losses import *
 import math
-import pickle
 
 sgd_lr = 0.001
 sgd_decay = 0.00005
@@ -20,7 +19,7 @@ critical_loss = 500
 
 first_round = 1
 
-rounds = 10
+rounds = 1
 rounds_to_backup_weights = 5
 rounds_to_predict_results = 2
 
@@ -36,8 +35,6 @@ loss_file_path = 'Predictions/out-loss.csv'
 score_predictions_file_path = 'Predictions/score_predictions.csv'
 train_images_path = 'Predictions/train'
 test_images_path = 'Predictions/test'
-train_cache_path = 'Predictions/cache/train_cache.dat'
-test_cache_path = 'Predictions/cache/test_cache.dat'
 
 
 def print_debug(str_to_print):
@@ -131,22 +128,17 @@ def example_name_to_result(ex_name):
         raise Exception
 
 
-def prepare_data(examples_path, cache_path):
-    if os.path.isfile(cache_path):
-        print_debug('Restore from cache!')
-        (images, expected_result_arr, expected_masks) = restore_data(cache_path)
-    else:
-        ex_paths = glob.glob('%s/*-im.png' % examples_path)
-        np.random.shuffle(ex_paths)
-        images = prepare_local_images(ex_paths)
+def prepare_data(examples_path):
 
-        expected_mask_paths = [str.replace(img_path, 'im', 'mask') for img_path in ex_paths]
-        expected_masks = prepare_expected_masks(expected_mask_paths)
+    ex_paths = glob.glob('%s/*-im.png' % examples_path)
+    # np.random.shuffle(ex_paths) # shuffle wil be set later, for consistency in loss calculation
+    images = prepare_local_images(ex_paths)
 
-        expected_results = [example_name_to_result(os.path.basename(ex_path)) for ex_path in ex_paths]
-        expected_result_arr = np.array([[res] for res in expected_results])
+    expected_mask_paths = [str.replace(img_path, 'im', 'mask') for img_path in ex_paths]
+    expected_masks = prepare_expected_masks(expected_mask_paths)
 
-        cache_data((images, expected_result_arr, expected_masks), cache_path)
+    expected_results = [example_name_to_result(os.path.basename(ex_path)) for ex_path in ex_paths]
+    expected_result_arr = np.array([[res] for res in expected_results])
 
     return images, expected_result_arr, expected_masks
 
@@ -162,23 +154,6 @@ def backup_net(graph, round_num):
 
 def is_exploding_loss(loss):
     math.isnan(loss) or math.isinf(loss) or loss >= critical_loss
-
-
-def cache_data(data, path):
-    if os.path.isdir(os.path.dirname(path)):
-        cache_file = open(path, 'wb')
-        pickle.dump(data, cache_file)
-        cache_file.close()
-    else:
-        print('Directory doesnt exists')
-
-
-def restore_data(path):
-    data = dict()
-    if os.path.isfile(path):
-        cache_file = open(path, 'rb')
-        data = pickle.load(cache_file)
-    return data
 
 
 def main():
@@ -199,8 +174,8 @@ def main():
     compile_net(graph)  # current keras version cannot load compiled net with custom loss function
     print_debug('preparing data...')
 
-    train_images, train_expected_scores, train_expected_masks = prepare_data(train_images_path, train_cache_path)
-    test_images, test_expected_scores, test_expected_masks = prepare_data(test_images_path, test_cache_path)
+    train_images, train_expected_scores, train_expected_masks = prepare_data(train_images_path)
+    test_images, test_expected_scores, test_expected_masks = prepare_data(test_images_path)
     print_debug('Dataset- %d train examples, %d test examples' %
                 (len(train_expected_scores), len(test_expected_scores)))
 
@@ -212,6 +187,7 @@ def main():
         print_debug('starting round %d:' % round_number)
         graph.fit({'input': train_images, 'seg_output': train_expected_masks, 'score_output': train_expected_scores},
                   nb_epoch=epochs, batch_size=batch_size, verbose=0, shuffle=True)
+        print_debug('Evaluating...')
         train_loss, test_loss = evaluate_net_loss(graph, train_images, train_expected_scores, train_expected_masks,
                                                   test_images, test_expected_scores, test_expected_masks, loss_file)
         if is_exploding_loss(train_loss):
