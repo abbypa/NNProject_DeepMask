@@ -12,7 +12,7 @@ sgd_lr = 0.001
 sgd_decay = 0.00005
 sgd_momentum = 0.9
 
-epochs = 1
+epochs_per_round = 1
 batch_size = 32
 evaluation_batch_size = batch_size
 critical_loss = 500
@@ -26,7 +26,8 @@ rounds_to_predict_results = 2
 
 # paths:
 graph_arch_path = 'Resources/graph_architecture_with_transfer.json'
-graph_weights_path = 'Resources/graph_weights_with_transfer.h5'
+# graph_weights_path = 'Resources/graph_weights_with_transfer.h5'
+graph_weights_path = 'Predictions/nets/latest_net'
 original_net_weights_path = 'Resources/vgg16_graph_weights.h5'
 train_predictions_path = 'Predictions/train_predictions'
 test_predictions_path = 'Predictions/test_predictions'
@@ -186,7 +187,7 @@ def main():
     for round_number in range(first_round, rounds + 1):
         print_debug('starting round %d:' % round_number)
         graph.fit({'input': train_images, 'seg_output': train_expected_masks, 'score_output': train_expected_scores},
-                  nb_epoch=epochs, batch_size=batch_size, verbose=0, shuffle=True)
+                  nb_epoch=epochs_per_round, batch_size=batch_size, verbose=0, shuffle=True)
         print_debug('Evaluating...')
         train_loss, test_loss = evaluate_net_loss(graph, train_images, train_expected_scores, train_expected_masks,
                                                   test_images, test_expected_scores, test_expected_masks, loss_file)
