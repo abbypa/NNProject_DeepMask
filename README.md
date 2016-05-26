@@ -24,7 +24,7 @@ This was run on Windows 8.1.
 
 ### Required downloads
 - VGG-D
-  - Net was taken from [here](https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3). Weights should be downloaded locally.
+  - Net was taken from [here](https://gist.github.com/baraldilorenzo/07d7802847aaad0a35d3). Weights should be downloaded locally, and converted to graph format using **HelperScripts/CreateVggGraphWeights.py**
   - Full article: [Very Deep Convolutional Networks for Large-Scale Image Recognition](http://arxiv.org/abs/1409.1556)
 - MSCOCO
   - Download annotation files [here](http://mscoco.org/dataset/#download)
