@@ -5,20 +5,20 @@ This is a Keras-based Python implementation of DeepMask- a complex deep neural n
 This was implemented as a final project for TAU Deep Learning course (2016).
 
 ### Required installations
-This was run on Windows 8.1.
+This was run on Windows 8.1 (64 bit). In brackets are the versions I used.
 
 - Python
-  - [Anaconda for Windows x64 with Python 2.7](https://www.continuum.io/downloads)
-- Theano
+  - [Anaconda for Windows x64 with Python 2.7](https://www.continuum.io/downloads) (Anaconda version 2.4.1)
+- Theano (0.8.0.dev0)
   - conda install mingw libpython
   - git clone https://github.com/Theano/Theano.git
   - python setup.py install
-- Keras
+- Keras (0.3.1)
   - conda install keras
-- Open CV
+- Open CV (3.1.0)
   - Download installation [here](http://opencv.org/)
   - Copy cv2.pyd to site-packages dir inside python's lib dir in anaconda
-- Coco API
+- Coco API (1.0.1)
   - git clone https://github.com/pdollar/coco
   - python setup.py build_ext install
 
