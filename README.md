@@ -5,7 +5,7 @@ This is a Keras-based Python implementation of DeepMask- a complex deep neural n
 This was implemented as a final project for TAU Deep Learning course (2016).
 
 ### Required installations
-This was run on Windows 8.1 (64 bit). In brackets are the versions I used.
+This was run on Windows 8.1 (64 bit) on a CPU with 8GB RAM. In brackets are the versions I used.
 
 - Python
   - [Anaconda for Windows x64 with Python 2.7](https://www.continuum.io/downloads) (Anaconda version 2.4.1)
