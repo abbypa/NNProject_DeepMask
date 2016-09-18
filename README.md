@@ -4,6 +4,13 @@ This is a Keras-based Python implementation of DeepMask- a complex deep neural n
 
 This was implemented as a final project for TAU Deep Learning course (2016).
 
+### General instructions
+1. Install all requirements, as listed below
+2. Download mscoco annotations (see below)
+3. Download and convert graph weights with HeplerScripts/CreateVggGraphWeights.py (see below)
+4. Create the learning dataset using ExamplesGenerator.py
+5. Run EndToEnd.py
+
 ### Required installations
 This was run on Windows 8.1 (64 bit) on a CPU with 8GB RAM. In brackets are the versions I used.
 
