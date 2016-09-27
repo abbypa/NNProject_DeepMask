@@ -22,6 +22,7 @@ This was run on Windows 8.1 (64 bit) on a CPU with 8GB RAM. In brackets are the 
   - python setup.py install
 - Keras (0.3.1)
   - conda install keras
+  - NOTICE- if you get this error- "'Graph' object has no attribute 'layers'"- you are not using the correct Keras version
 - Open CV (3.1.0)
   - Download installation [here](http://opencv.org/)
   - Copy cv2.pyd to site-packages dir inside python's lib dir in anaconda
